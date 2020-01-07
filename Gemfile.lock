@@ -1,0 +1,20 @@
+PATH
+  remote: .
+  specs:
+    ruby_snowflake_client (0.3.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rake (13.0.6)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bundler
+  rake
+  ruby_snowflake_client!
+
+BUNDLED WITH
+   2.2.33
