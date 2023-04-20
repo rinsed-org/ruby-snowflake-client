@@ -20,7 +20,7 @@ module GoSnowflakeClient
   # @param account[String] should include everything in the db url ahead of 'snowflakecomputing.com'
   # @param port[Integer]
   # @return query_object[Pointer] a pointer to use for subsequent calls not inspectable nor viewable by Ruby
-  def connect(account, warehouse, database, schema, user, password, role, port = 443)
+  def connect(account:"", warehouse: "", database: "", schema: "", user: "", password: "", role: "", port: 443)
     GoSnowflakeClientBinding.connect(account, warehouse, database, schema, user, password, role, port || 443)
   end
 
@@ -39,7 +39,7 @@ module GoSnowflakeClient
 
   # Send a query and then yield each row as an array of strings to the given block
   # @param db_pointer[Pointer] the pointer which `connect` returned.
-  # @param query[String] a select query to run.
+  # @param sql[String] a select query to run.
   # @return error_string
   # @yield List<String>
   def select(db_pointer, sql, field_count: nil)
