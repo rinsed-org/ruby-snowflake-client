@@ -42,19 +42,24 @@ module GoSnowflakeClient
   # @param sql[String] a select query to run.
   # @return error_string
   # @yield List<String>
-  def select(db_pointer, sql, field_count: nil)
+  def select(db_pointer, sql, map_fields: false)
     return 'db_pointer not initialized' unless db_pointer
-    return to_enum(__method__, db_pointer, sql) unless block_given?
+    return to_enum(__method__, db_pointer, sql, map_fields: map_fields) unless block_given?
 
     query_pointer = fetch(db_pointer, sql)
     return last_error if query_pointer.nil? || query_pointer == FFI::Pointer::NULL
 
-    field_count ||= column_count(query_pointer)
+    field_count = column_count(query_pointer)
+    field_names = column_names(query_pointer, field_count).map(&:to_sym)
     loop do
       row = get_next_row(query_pointer, field_count)
       return last_error unless row
 
-      yield row
+      if map_fields
+        yield field_names.zip(row).to_h
+      else
+        yield row
+      end
     end
     nil
   end
