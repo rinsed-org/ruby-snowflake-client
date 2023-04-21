@@ -10,7 +10,6 @@ Gem::Specification.new do |s|
   s.summary = 'Snowflake connect for Ruby'
   s.author  = 'CarGurus'
   s.email   = ['dmitchell@cargurus.com', 'sabbott@cargurus.com']
-  s.platform = Gem::Platform::CURRENT
   s.description = <<~DESC
     Uses gosnowflake to connect to and communicate with Snowflake.
     This library is much faster than using ODBC especially for large result sets and avoids ODBC butchering of timezones.
@@ -24,6 +23,7 @@ Gem::Specification.new do |s|
 
   # perhaps nothing and figure out how to build and pkg the platform specific .so, or .a, or ...
   # s.extensions << "ext/ruby_snowflake_client/extconf.rb"
+  s.extensions = %w[ext/extconf.rb]
 
   s.add_dependency 'ffi'
   s.add_development_dependency 'bundler'

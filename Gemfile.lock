@@ -1,14 +1,14 @@
 PATH
   remote: .
   specs:
-    ruby_snowflake_client (0.2.4-x86_64-darwin-18)
+    ruby_snowflake_client (0.2.4-arm64-darwin-22)
       ffi
 
 GEM
   remote: https://rubygems.org/
   specs:
-    ffi (1.11.3)
-    rake (13.0.1)
+    ffi (1.15.5)
+    rake (13.0.6)
 
 PLATFORMS
   ruby
@@ -19,4 +19,4 @@ DEPENDENCIES
   ruby_snowflake_client!
 
 BUNDLED WITH
-   1.17.3
+   2.2.33
