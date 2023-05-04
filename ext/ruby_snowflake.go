@@ -2,13 +2,27 @@ package main
 
 /*
 #include <stdlib.h>
+#include "ruby/ruby.h"
+VALUE hello();
+void Connect(VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE);
+void ObjFetch(VALUE,VALUE);
+VALUE ObjNextRow(VALUE);
+VALUE Inspect(VALUE);
+VALUE GetRows(VALUE,VALUE);
+
+VALUE NewGoStruct(VALUE klass, void *p);
+VALUE GoRetEnum(VALUE,int,VALUE);
+void* GetGoStruct(VALUE obj);
+void RbGcGuard(VALUE ptr);
 */
 import "C"
+
 import (
 	"database/sql"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -16,242 +30,308 @@ import (
 	sf "github.com/snowflakedb/gosnowflake"
 )
 
-// Lazy coding: storing last error and connection as global vars bc don't want to figure out how to pkg and pass them
-// back and forth to ruby
-var last_error error
+type RubySnowflake struct {
+	db       *sql.DB
+	rows     *sql.Rows
+	keptHash C.VALUE
+}
 
-//export LastError
-func LastError() *C.char {
-	if last_error == nil {
-		return nil
-	} else {
-		return C.CString(last_error.Error())
-	}
+var rbSnowflake C.VALUE
+
+var objects = make(map[interface{}]bool)
+
+//export goobj_log
+func goobj_log(obj unsafe.Pointer) {
+	fmt.Println("log obj", obj)
+}
+
+//export goobj_retain
+func goobj_retain(obj unsafe.Pointer) {
+	fmt.Println("retain obj")
+	objects[obj] = true
+}
+
+//export goobj_free
+func goobj_free(obj unsafe.Pointer) {
+	fmt.Println("CALLED GOOBJ FREE")
+	delete(objects, obj)
 }
 
 // @returns db pointer
 // ugh, ruby and go were disagreeing about the length of `int` so I had to be particular here and in the ffi
 //
 //export Connect
-func Connect(account *C.char, warehouse *C.char, database *C.char, schema *C.char,
-	user *C.char, password *C.char, role *C.char, port int64) unsafe.Pointer {
+func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE, schema C.VALUE, user C.VALUE, password C.VALUE, role C.VALUE) {
 	// other optional parms: Application, Host, and alt auth schemes
 	cfg := &sf.Config{
-		Account:   C.GoString(account),
-		Warehouse: C.GoString(warehouse),
-		Database:  C.GoString(database),
-		Schema:    C.GoString(schema),
-		User:      C.GoString(user),
-		Password:  C.GoString(password),
-		Role:      C.GoString(role),
-		Port:      int(port),
+		Account:   RbGoString(account),
+		Warehouse: RbGoString(warehouse),
+		Database:  RbGoString(database),
+		Schema:    RbGoString(schema),
+		User:      RbGoString(user),
+		Password:  RbGoString(password),
+		Role:      RbGoString(role),
+		Port:      int(443),
 	}
 
-	dsn, last_error := sf.DSN(cfg)
-	if last_error != nil {
-		return nil
+	dsn, err := sf.DSN(cfg)
+	if err != nil {
+		rb_raise(C.rb_eArgError, "Snowflake Config Creation Error: '%s'", err)
 	}
 
-	var db *sql.DB
-	db, last_error = sql.Open("snowflake", dsn)
-	if db == nil {
-		return nil
-	} else {
-		return gopointer.Save(db)
+	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		rb_raise(C.rb_eArgError, "Connection Error: '%s'", err)
 	}
+	xx := RubySnowflake{db, nil, C.Qnil}
+	ptr := gopointer.Save(&xx)
+	q := C.NewGoStruct(
+		rbSnowflake,
+		ptr,
+	)
+
+	id := C.rb_intern(C.CString("db"))
+	C.rb_ivar_set(self, id, q)
 }
 
 //export Close
 func Close(db_pointer unsafe.Pointer) {
-	db := decodeDbPointer(db_pointer)
-	if db != nil {
-		db.Close()
-	}
+	//db := decodeDbPointer(db_pointer)
+	//if db != nil {
+	//db.Close()
+	//}
 }
 
-// @return number of rows affected or -1 for error
-//
-//export Exec
-func Exec(db_pointer unsafe.Pointer, statement *C.char) int64 {
-	db := decodeDbPointer(db_pointer)
-	var res sql.Result
-	res, last_error = db.Exec(C.GoString(statement))
-	if res != nil {
-		rows, _ := res.RowsAffected()
-		return rows
-	}
-	return -1
-}
+//export ObjFetch
+func ObjFetch(self C.VALUE, statement C.VALUE) {
+	var q C.VALUE
+	id := C.rb_intern(C.CString("db"))
+	q = C.rb_ivar_get(self, id)
 
-//export Fetch
-func Fetch(db_pointer unsafe.Pointer, statement *C.char) unsafe.Pointer {
-	db := decodeDbPointer(db_pointer)
-	var rows *sql.Rows
+	req := C.GetGoStruct(q)
+	f := gopointer.Restore(req)
+	fmt.Println(q, req, f)
+	x, ok := f.(*RubySnowflake)
+	if !ok {
+		rb_raise(C.rb_eArgError, "%s", errors.New("cannot convert x to pointer"))
+	}
+
 	t1 := time.Now()
-	rows, last_error = db.Query(C.GoString(statement))
+	fmt.Println("statement", RbGoString(statement))
+	//fmt.Println(x.db)
+	//d := time.Now().Add(5 * time.Second)
+	//ctxWithTimeout, _ := context.WithDeadline(context.Background(), d)
+	//rows, err := x.db.QueryContext(ctxWithTimeout, RbGoString(statement))
+	rows, err := x.db.Query(RbGoString(statement))
 	fmt.Printf("Query duration: %s\n", time.Now().Sub(t1))
-	if rows != nil {
-		result := gopointer.Save(rows)
-		return result
-	} else {
-		return nil
+	if err != nil {
+		rb_raise(C.rb_eArgError, "Query error: '%s'", err)
 	}
+	x.rows = rows
+
+	return
 }
 
-// @return column names[List<String>] for the given query.
-//
-//export QueryColumns
-func QueryColumns(rows_pointer unsafe.Pointer) **C.char {
-	rows := decodeRowsPointer(rows_pointer)
-	if rows == nil {
-		return nil
+//export Inspect
+func Inspect(self C.VALUE) C.VALUE {
+	id := C.rb_intern(C.CString("db"))
+	q := C.rb_ivar_get(self, id)
+	if q == C.Qnil {
+		return RbString("Object is not instantiated")
 	}
 
+	req := C.GetGoStruct(q)
+	f := gopointer.Restore(req)
+	x := f.(*RubySnowflake)
+	return RbString(fmt.Sprintf("%+v", x))
+}
+
+func (x RubySnowflake) ScanNextRow(debug bool) C.VALUE {
+	rows := x.rows
 	columns, _ := rows.Columns()
 	rowLength := len(columns)
 
-	// See `NextRow` for why this pattern
-	pointerSize := unsafe.Sizeof(rows_pointer)
-	// Allocate an array for the string pointers.
-	var out **C.char
-	out = (**C.char)(C.malloc(C.ulong(rowLength) * C.ulong(pointerSize)))
-
-	pointer := out
-	for _, raw := range columns {
-		// Find where to store the address of the next string.
-		// Copy each output string to a C string, and add it to the array.
-		// C.CString uses malloc to allocate memory.
-		*pointer = C.CString(string(raw))
-		// inc pointer to next array ele
-		pointer = (**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(pointer)) + pointerSize))
-	}
-	return out
-}
-
-// @return column names[List<String>] for the given query.
-//
-//export QueryColumnCount
-func QueryColumnCount(rows_pointer unsafe.Pointer) int32 {
-	rows := decodeRowsPointer(rows_pointer)
-	if rows == nil {
-		return 0
+	rawResult := make([]interface{}, rowLength)
+	rawData := make([]interface{}, rowLength)
+	for i := range rawResult {
+		rawData[i] = &rawResult[i]
 	}
 
-	columns, _ := rows.Columns()
-	return int32(len(columns))
+	err := rows.Scan(rawData...)
+	if err != nil {
+		rb_raise(C.rb_eArgError, "Cannot scan row: '%s'", err)
+	}
+
+	var hash C.VALUE
+
+	// trick from postgres; keep hash: pg_result.c:1088
+	if x.keptHash == C.Qnil {
+		hash = C.rb_hash_new()
+	} else {
+		hash = x.keptHash
+	}
+	//C.RbGcGuard(hash)
+
+	for idx, raw := range rawResult {
+		//fix go pointer for for loop variable
+		if debug {
+			fmt.Printf("here4 - %d\n", idx)
+		}
+		raw := raw
+		col_name := RbString(strings.ToLower(columns[idx]))
+		if raw == nil {
+			C.rb_hash_aset(hash, col_name, C.Qnil)
+		} else {
+			switch v := raw.(type) {
+			case float64:
+				C.rb_hash_aset(hash, col_name, C.rb_float_new(C.double(v)))
+			case bool:
+				var qq C.VALUE
+				qq = C.Qfalse
+				if v {
+					qq = C.Qtrue
+				}
+				C.rb_hash_aset(hash, col_name, qq)
+			case time.Time:
+				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
+				qq := C.rb_time_timespec_new(ts, 0)
+				C.rb_hash_aset(hash, col_name, qq)
+			default:
+				str := fmt.Sprintf("%v", raw)
+				C.rb_hash_aset(hash, col_name, C.rb_str_new(C.CString(str), C.long(len(str))))
+			}
+		}
+	}
+
+	x.keptHash = C.rb_hash_dup(hash)
+
+	return hash
 }
 
-// NOTE: gc's the rows_pointer object on EOF and returns nil. LastError is set to EOF
-//
-//export NextRow
-func NextRow(rows_pointer unsafe.Pointer) *unsafe.Pointer {
-	rows := decodeRowsPointer(rows_pointer)
+//export GetRows
+func GetRows(self C.VALUE, inputDebug C.VALUE) C.VALUE {
+	id := C.rb_intern(C.CString("db"))
+	q := C.rb_ivar_get(self, id)
+	//C.RbGcGuard(q)
+
+	req := C.GetGoStruct(q)
+	f := gopointer.Restore(req)
+	x := f.(*RubySnowflake)
+	rows := x.rows
 	if rows == nil {
-		return nil
+		rb_raise(C.rb_eArgError, "%s", errors.New("Empty result; please run a query first"))
+	}
+	d := RbGoString(inputDebug)
+	var dbg bool
+	if d == "debug" {
+		dbg = true
+	}
+
+	if C.rb_block_given_p() == C.Qfalse {
+		rb_raise(C.rb_eArgError, "%s", errors.New("this causes a memleak; please provide a block"))
+		i := 0
+		arr := []any{}
+		t1 := time.Now()
+		for rows.Next() {
+			if i%100 == 0 {
+				fmt.Println("scanning row: ", i)
+			}
+			q := x.ScanNextRow(dbg)
+			//C.RbGcGuard(q)
+			arr = append(arr, q)
+			i = i + 1
+		}
+		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
+		t1 = time.Now()
+		res := C.rb_ary_new2(C.long(len(arr)))
+		//C.RbGcGuard(res)
+		for idx, qqq := range arr {
+			if idx%100 == 0 {
+				fmt.Println("added to array: ", idx)
+			}
+			C.rb_ary_push(res, qqq.(C.VALUE))
+			//C.rb_ary_store(res, C.long(idx), qqq)
+		}
+		fmt.Printf("done with creating ruby array: %s\n", time.Now().Sub(t1))
+		x.rows = nil
+		x.keptHash = C.Qnil
+		return res
+	} else {
+		i := 0
+		t1 := time.Now()
+		for rows.Next() {
+			if i%5000 == 0 {
+				fmt.Println("scanning row: ", i)
+			}
+			C.rb_yield(x.ScanNextRow(false))
+			i = i + 1
+		}
+		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
+		x.rows = nil
+		x.keptHash = C.Qnil
+	}
+
+	return self
+}
+
+//export ObjNextRow
+func ObjNextRow(self C.VALUE) C.VALUE {
+	id := C.rb_intern(C.CString("db"))
+	q := C.rb_ivar_get(self, id)
+
+	req := C.GetGoStruct(q)
+	f := gopointer.Restore(req)
+	x := f.(*RubySnowflake)
+
+	rows := x.rows
+	if rows == nil {
+		return C.Qnil
 	}
 
 	if rows.Next() {
-		columns, _ := rows.Columns()
-		rowLength := len(columns)
-
-		rawResult := make([]interface{}, rowLength)
-		rawData := make([]interface{}, rowLength)
-		for i := range rawResult {
-			rawData[i] = &rawResult[i]
-		}
-
-		// https://stackoverflow.com/questions/58866962/how-to-pass-an-array-of-strings-and-get-an-array-of-strings-in-ruby-using-go-sha
-		pointerSize := unsafe.Sizeof(rows_pointer)
-		// Allocate an array for the string pointers.
-
-		last_error = rows.Scan(rawData...)
-		if last_error != nil {
-			return nil
-		}
-
-		// Allocate an array for the string pointers.
-		var out *unsafe.Pointer
-		out = (*unsafe.Pointer)(C.malloc(C.ulong(rowLength) * C.ulong(pointerSize)))
-		pointer := out
-
-		var typesOut **C.char
-		typesOut = (**C.char)(C.malloc(C.ulong(rowLength) * C.ulong(pointerSize)))
-		typesPointer := typesOut
-
-		for _, raw := range rawResult {
-			// Copy each output string to a C string, and add it to the array.
-			// C.CString uses malloc to allocate memory.
-
-			//fix go pointer for for loop variable
-			raw := raw
-			if raw == nil {
-				*pointer = nil
-				*typesPointer = nil
-			} else {
-				rawType := "string"
-
-				switch v := raw.(type) {
-				case float64:
-					qq := C.double(v)
-					*pointer = unsafe.Pointer(&qq)
-					rawType = "double"
-				case bool:
-					qq := C.short(0)
-					if v {
-						qq = C.short(1)
-					}
-					*pointer = unsafe.Pointer(&qq)
-					rawType = "short"
-				case time.Time:
-					rawType = "time.Time"
-					*pointer = unsafe.Pointer(C.CString(v.Format(time.RFC3339)))
-				default:
-					*pointer = unsafe.Pointer(C.CString(fmt.Sprintf("%v", raw)))
-				}
-
-				t := C.CString(rawType)
-				*typesPointer = t
-			}
-			pointer = (*unsafe.Pointer)(unsafe.Pointer(uintptr(unsafe.Pointer(pointer)) + pointerSize))
-			typesPointer = (**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(typesPointer)) + pointerSize))
-		}
-
-		var finalOut *unsafe.Pointer
-		finalOut = (*unsafe.Pointer)(C.malloc(C.ulong(unsafe.Sizeof(out)) + C.ulong(unsafe.Sizeof(typesOut))))
-		finalPointer := finalOut
-		*finalPointer = unsafe.Pointer(out)
-		finalPointer = (*unsafe.Pointer)(unsafe.Pointer(uintptr(unsafe.Pointer(finalPointer)) + unsafe.Sizeof(pointerSize)))
-		*finalPointer = unsafe.Pointer(typesOut)
-		finalPointer = (*unsafe.Pointer)(unsafe.Pointer(uintptr(unsafe.Pointer(finalPointer)) + unsafe.Sizeof(pointerSize)))
-
-		return finalOut
-
+		return x.ScanNextRow(false)
 	} else if rows.Err() == io.EOF {
-		gopointer.Unref(rows_pointer) // free up for gc
+		x.rows = nil        // free up for gc
+		x.keptHash = C.Qnil // free up for gc
 	}
-	return nil
+	return C.Qnil
 }
 
-func decodeDbPointer(db_pointer unsafe.Pointer) *sql.DB {
-	if db_pointer == nil {
-		last_error = errors.New("db_pointer is null. Cannot process command.")
-		return nil
-	}
-	return gopointer.Restore(db_pointer).(*sql.DB)
+//export hello
+func hello() C.VALUE {
+	ts := &C.struct_timespec{C.long(1682441971), C.long(5000)}
+
+	fmt.Println("depress", ts)
+	qq := C.rb_time_timespec_new(ts, 0)
+	array := C.rb_ary_new2(5)
+	C.rb_ary_push(array, qq)
+	str := "dadsadsa"
+	C.rb_ary_push(array, C.rb_str_new(C.CString(str), C.long(len(str))))
+	C.rb_ary_push(array, C.VALUE(C.long(123)))
+	C.rb_ary_push(array, C.VALUE(C.rb_float_new(C.double(123.5878))))
+
+	return array
 }
 
-func decodeRowsPointer(rows_pointer unsafe.Pointer) *sql.Rows {
-	if rows_pointer == nil {
-		last_error = errors.New("rows_pointer null: cannot fetch")
-		return nil
-	}
-	var rows *sql.Rows
-	rows = gopointer.Restore(rows_pointer).(*sql.Rows)
+var rb_cGoSnow C.VALUE
 
-	if rows == nil {
-		last_error = errors.New("rows_pointer invalid: Restore returned nil")
-	}
-	return rows
+//export Init_ruby_snowflake_client
+func Init_ruby_snowflake_client() {
+	rb_cGoSnow = C.rb_define_module(C.CString("AlexLibrary"))
+	rbSnowflake = C.rb_define_class_under(rb_cGoSnow, C.CString("Snow"), C.rb_cObject)
+
+	C.rb_define_method(rbSnowflake, C.CString("connect"), (*[0]byte)(C.Connect), 7)
+	C.rb_define_method(rbSnowflake, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
+	C.rb_define_method(rbSnowflake, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
+	C.rb_define_method(rbSnowflake, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
+	C.rb_define_method(rbSnowflake, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
+	C.rb_define_method(rbSnowflake, C.CString("get_rows"), (*[0]byte)(C.GetRows), 1)
+
+	//C.rb_define_method(rb_cGoSnow, C.CString("fetch"), (*[0]byte)(C.fetch), 1)
+	C.rb_define_singleton_method(rb_cGoSnow, C.CString("library_version"), (*[0]byte)(C.hello), 0)
+
+	fmt.Println("init ruby snowflake client")
+	//C.rb_define_method(cls, C.CString("my_method"), (*[0]byte)(unsafe.Pointer(&q)), 2)
 }
 
 func main() {}
