@@ -252,7 +252,12 @@ func GetAllRows(self C.VALUE) C.VALUE {
 	if d == "debug" {
 		dbg = true
 	}
-	//rb_raise(C.rb_eArgError, "%s", errors.New("this causes a memleak; please provide a block"))
+	rb_raise(
+		C.rb_eArgError,
+		"%s",
+		errors.New("this causes a memleak; please use the `get_rows` which returns an enumerator"),
+	)
+	// Below code never runs; as the exception above gets triggered.
 	i := 0
 	arr := []any{}
 	t1 := time.Now()
