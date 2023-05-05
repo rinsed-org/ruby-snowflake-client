@@ -16,6 +16,10 @@ rb_raise2(VALUE exc, const char *str) {
     rb_raise(exc, "%s", str);
 }
 
+VALUE RbNumFromDouble(double v) {
+	return DBL2NUM(v);
+}
+
 void goobj_retain(void *);
 void goobj_free(void *);
 void goobj_log(void *);

@@ -15,6 +15,7 @@ VALUE GoRetEnum(VALUE,int,VALUE);
 void* GetGoStruct(VALUE obj);
 void RbGcGuard(VALUE ptr);
 VALUE ReturnEnumerator(VALUE cls);
+VALUE RbNumFromDouble(double v);
 */
 import "C"
 
@@ -211,7 +212,7 @@ func (x RubySnowflake) ScanNextRow(debug bool) C.VALUE {
 		} else {
 			switch v := raw.(type) {
 			case float64:
-				C.rb_hash_aset(hash, col_name, C.rb_float_new(C.double(v)))
+				C.rb_hash_aset(hash, col_name, C.RbNumFromDouble(C.double(v)))
 			case bool:
 				var qq C.VALUE
 				qq = C.Qfalse
