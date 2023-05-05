@@ -38,19 +38,15 @@ type RubySnowflake struct {
 	keptHash C.VALUE
 }
 
-var rbSnowflake C.VALUE
+var rbSnowflakeClass C.VALUE
+var rbSnowflakeModule C.VALUE
+var DB_IDENTIFIER = C.rb_intern(C.CString("db"))
 
 var objects = make(map[interface{}]bool)
 
 //export goobj_mark
 func goobj_mark(obj unsafe.Pointer) {
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
 	fmt.Println("MARK log obj", obj)
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
 }
 
 //export goobj_log
@@ -70,9 +66,6 @@ func goobj_free(obj unsafe.Pointer) {
 	delete(objects, obj)
 }
 
-// @returns db pointer
-// ugh, ruby and go were disagreeing about the length of `int` so I had to be particular here and in the ffi
-//
 //export Connect
 func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE, schema C.VALUE, user C.VALUE, password C.VALUE, role C.VALUE) {
 	// other optional parms: Application, Host, and alt auth schemes
@@ -96,16 +89,14 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 	if err != nil {
 		rb_raise(C.rb_eArgError, "Connection Error: '%s'", err)
 	}
-	xx := RubySnowflake{db, nil, C.Qnil}
-	ptr := gopointer.Save(&xx)
-	q := C.NewGoStruct(
-		rbSnowflake,
+	rs := RubySnowflake{db, nil, C.Qnil}
+	ptr := gopointer.Save(&rs)
+	rbStruct := C.NewGoStruct(
+		rbSnowflakeClass,
 		ptr,
 	)
-	C.RbGcGuard(q)
 
-	id := C.rb_intern(C.CString("db"))
-	C.rb_ivar_set(self, id, q)
+	C.rb_ivar_set(self, DB_IDENTIFIER, rbStruct)
 }
 
 //export Close
@@ -119,8 +110,7 @@ func Close(db_pointer unsafe.Pointer) {
 //export ObjFetch
 func ObjFetch(self C.VALUE, statement C.VALUE) {
 	var q C.VALUE
-	id := C.rb_intern(C.CString("db"))
-	q = C.rb_ivar_get(self, id)
+	q = C.rb_ivar_get(self, DB_IDENTIFIER)
 
 	req := C.GetGoStruct(q)
 	f := gopointer.Restore(req)
@@ -148,8 +138,7 @@ func ObjFetch(self C.VALUE, statement C.VALUE) {
 
 //export Inspect
 func Inspect(self C.VALUE) C.VALUE {
-	id := C.rb_intern(C.CString("db"))
-	q := C.rb_ivar_get(self, id)
+	q := C.rb_ivar_get(self, DB_IDENTIFIER)
 	if q == C.Qnil {
 		return RbString("Object is not instantiated")
 	}
@@ -235,8 +224,7 @@ func (x RubySnowflake) ScanNextRow(debug bool) C.VALUE {
 
 //export GetAllRows
 func GetAllRows(self C.VALUE) C.VALUE {
-	id := C.rb_intern(C.CString("db"))
-	q := C.rb_ivar_get(self, id)
+	q := C.rb_ivar_get(self, DB_IDENTIFIER)
 
 	req := C.GetGoStruct(q)
 	f := gopointer.Restore(req)
@@ -283,9 +271,7 @@ func GetAllRows(self C.VALUE) C.VALUE {
 
 //export GetRows
 func GetRows(self C.VALUE) C.VALUE {
-	//func GetRows(self C.VALUE, inputDebug C.VALUE) C.VALUE {
-	id := C.rb_intern(C.CString("db"))
-	q := C.rb_ivar_get(self, id)
+	q := C.rb_ivar_get(self, DB_IDENTIFIER)
 	//C.RbGcGuard(q)
 
 	req := C.GetGoStruct(q)
@@ -320,8 +306,7 @@ func GetRows(self C.VALUE) C.VALUE {
 
 //export ObjNextRow
 func ObjNextRow(self C.VALUE) C.VALUE {
-	id := C.rb_intern(C.CString("db"))
-	q := C.rb_ivar_get(self, id)
+	q := C.rb_ivar_get(self, DB_IDENTIFIER)
 
 	req := C.GetGoStruct(q)
 	f := gopointer.Restore(req)
@@ -357,26 +342,22 @@ func hello() C.VALUE {
 	return array
 }
 
-var rb_cGoSnow C.VALUE
-
 //export Init_ruby_snowflake_client
 func Init_ruby_snowflake_client() {
-	rb_cGoSnow = C.rb_define_module(C.CString("AlexLibrary"))
-	rbSnowflake = C.rb_define_class_under(rb_cGoSnow, C.CString("Snow"), C.rb_cObject)
+	rbSnowflakeModule = C.rb_define_module(C.CString("AlexLibrary"))
+	rbSnowflakeClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Snow"), C.rb_cObject)
 
-	C.rb_define_method(rbSnowflake, C.CString("connect"), (*[0]byte)(C.Connect), 7)
-	C.rb_define_method(rbSnowflake, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
-	C.rb_define_method(rbSnowflake, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
-	C.rb_define_method(rbSnowflake, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
-	C.rb_define_method(rbSnowflake, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
-	C.rb_define_method(rbSnowflake, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
-	C.rb_define_method(rbSnowflake, C.CString("get_all_rows"), (*[0]byte)(C.GetAllRows), 0)
+	C.rb_define_method(rbSnowflakeClass, C.CString("connect"), (*[0]byte)(C.Connect), 7)
+	C.rb_define_method(rbSnowflakeClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
+	C.rb_define_method(rbSnowflakeClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
+	C.rb_define_method(rbSnowflakeClass, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
+	C.rb_define_method(rbSnowflakeClass, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
+	C.rb_define_method(rbSnowflakeClass, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
+	C.rb_define_method(rbSnowflakeClass, C.CString("get_all_rows"), (*[0]byte)(C.GetAllRows), 0)
 
-	//C.rb_define_method(rb_cGoSnow, C.CString("fetch"), (*[0]byte)(C.fetch), 1)
-	C.rb_define_singleton_method(rb_cGoSnow, C.CString("library_version"), (*[0]byte)(C.hello), 0)
+	C.rb_define_singleton_method(rbSnowflakeModule, C.CString("library_version"), (*[0]byte)(C.hello), 0)
 
 	fmt.Println("init ruby snowflake client")
-	//C.rb_define_method(cls, C.CString("my_method"), (*[0]byte)(unsafe.Pointer(&q)), 2)
 }
 
 func main() {}
