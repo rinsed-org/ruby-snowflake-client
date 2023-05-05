@@ -8,12 +8,14 @@ void Connect(VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE);
 void ObjFetch(VALUE,VALUE);
 VALUE ObjNextRow(VALUE);
 VALUE Inspect(VALUE);
-VALUE GetRows(VALUE,VALUE);
+VALUE GetRows(VALUE);
+VALUE GetAllRows(VALUE);
 
 VALUE NewGoStruct(VALUE klass, void *p);
 VALUE GoRetEnum(VALUE,int,VALUE);
 void* GetGoStruct(VALUE obj);
 void RbGcGuard(VALUE ptr);
+VALUE ReturnEnumerator(VALUE cls);
 */
 import "C"
 
@@ -39,6 +41,17 @@ type RubySnowflake struct {
 var rbSnowflake C.VALUE
 
 var objects = make(map[interface{}]bool)
+
+//export goobj_mark
+func goobj_mark(obj unsafe.Pointer) {
+	fmt.Println()
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("MARK log obj", obj)
+	fmt.Println()
+	fmt.Println()
+	fmt.Println()
+}
 
 //export goobj_log
 func goobj_log(obj unsafe.Pointer) {
@@ -89,6 +102,7 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 		rbSnowflake,
 		ptr,
 	)
+	C.RbGcGuard(q)
 
 	id := C.rb_intern(C.CString("db"))
 	C.rb_ivar_set(self, id, q)
@@ -144,6 +158,17 @@ func Inspect(self C.VALUE) C.VALUE {
 	f := gopointer.Restore(req)
 	x := f.(*RubySnowflake)
 	return RbString(fmt.Sprintf("%+v", x))
+}
+
+type rowResult []any
+
+func (x RubySnowflake) ScanAllRows() []rowResult {
+	res := make([]rowResult, 0)
+
+	// This will need to be changed so it can be used in GetAllRows - to delay
+	// creating ruby objects until we have scanned all rows; thus reducing the
+	// time the Ruby objects live in memory.
+	return res
 }
 
 func (x RubySnowflake) ScanNextRow(debug bool) C.VALUE {
@@ -208,8 +233,57 @@ func (x RubySnowflake) ScanNextRow(debug bool) C.VALUE {
 	return hash
 }
 
+//export GetAllRows
+func GetAllRows(self C.VALUE) C.VALUE {
+	id := C.rb_intern(C.CString("db"))
+	q := C.rb_ivar_get(self, id)
+
+	req := C.GetGoStruct(q)
+	f := gopointer.Restore(req)
+	x := f.(*RubySnowflake)
+	rows := x.rows
+	if rows == nil {
+		rb_raise(C.rb_eArgError, "%s", errors.New("Empty result; please run a query first"))
+	}
+
+	d := ""
+	var dbg bool
+	if d == "debug" {
+		dbg = true
+	}
+	//rb_raise(C.rb_eArgError, "%s", errors.New("this causes a memleak; please provide a block"))
+	i := 0
+	arr := []any{}
+	t1 := time.Now()
+	for rows.Next() {
+		if i%100 == 0 {
+			fmt.Println("scanning row: ", i)
+		}
+		q := x.ScanNextRow(dbg)
+		//C.RbGcGuard(q)
+		arr = append(arr, q)
+		i = i + 1
+	}
+	fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
+	t1 = time.Now()
+	res := C.rb_ary_new2(C.long(len(arr)))
+	//C.RbGcGuard(res)
+	for idx, qqq := range arr {
+		if idx%100 == 0 {
+			fmt.Println("added to array: ", idx)
+		}
+		C.rb_ary_push(res, qqq.(C.VALUE))
+		//C.rb_ary_store(res, C.long(idx), qqq)
+	}
+	fmt.Printf("done with creating ruby array: %s\n", time.Now().Sub(t1))
+	x.rows = nil
+	x.keptHash = C.Qnil
+	return res
+}
+
 //export GetRows
-func GetRows(self C.VALUE, inputDebug C.VALUE) C.VALUE {
+func GetRows(self C.VALUE) C.VALUE {
+	//func GetRows(self C.VALUE, inputDebug C.VALUE) C.VALUE {
 	id := C.rb_intern(C.CString("db"))
 	q := C.rb_ivar_get(self, id)
 	//C.RbGcGuard(q)
@@ -221,55 +295,25 @@ func GetRows(self C.VALUE, inputDebug C.VALUE) C.VALUE {
 	if rows == nil {
 		rb_raise(C.rb_eArgError, "%s", errors.New("Empty result; please run a query first"))
 	}
-	d := RbGoString(inputDebug)
-	var dbg bool
-	if d == "debug" {
-		dbg = true
+	//d := RbGoString(inputDebug)
+
+	enumRet := C.ReturnEnumerator(self)
+	if enumRet != C.Qnil {
+		return enumRet
 	}
 
-	if C.rb_block_given_p() == C.Qfalse {
-		rb_raise(C.rb_eArgError, "%s", errors.New("this causes a memleak; please provide a block"))
-		i := 0
-		arr := []any{}
-		t1 := time.Now()
-		for rows.Next() {
-			if i%100 == 0 {
-				fmt.Println("scanning row: ", i)
-			}
-			q := x.ScanNextRow(dbg)
-			//C.RbGcGuard(q)
-			arr = append(arr, q)
-			i = i + 1
+	i := 0
+	t1 := time.Now()
+	for rows.Next() {
+		if i%5000 == 0 {
+			fmt.Println("scanning row: ", i)
 		}
-		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
-		t1 = time.Now()
-		res := C.rb_ary_new2(C.long(len(arr)))
-		//C.RbGcGuard(res)
-		for idx, qqq := range arr {
-			if idx%100 == 0 {
-				fmt.Println("added to array: ", idx)
-			}
-			C.rb_ary_push(res, qqq.(C.VALUE))
-			//C.rb_ary_store(res, C.long(idx), qqq)
-		}
-		fmt.Printf("done with creating ruby array: %s\n", time.Now().Sub(t1))
-		x.rows = nil
-		x.keptHash = C.Qnil
-		return res
-	} else {
-		i := 0
-		t1 := time.Now()
-		for rows.Next() {
-			if i%5000 == 0 {
-				fmt.Println("scanning row: ", i)
-			}
-			C.rb_yield(x.ScanNextRow(false))
-			i = i + 1
-		}
-		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
-		x.rows = nil
-		x.keptHash = C.Qnil
+		C.rb_yield(x.ScanNextRow(false))
+		i = i + 1
 	}
+	fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
+	x.rows = nil
+	x.keptHash = C.Qnil
 
 	return self
 }
@@ -325,7 +369,8 @@ func Init_ruby_snowflake_client() {
 	C.rb_define_method(rbSnowflake, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflake, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
 	C.rb_define_method(rbSnowflake, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
-	C.rb_define_method(rbSnowflake, C.CString("get_rows"), (*[0]byte)(C.GetRows), 1)
+	C.rb_define_method(rbSnowflake, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
+	C.rb_define_method(rbSnowflake, C.CString("get_all_rows"), (*[0]byte)(C.GetAllRows), 0)
 
 	//C.rb_define_method(rb_cGoSnow, C.CString("fetch"), (*[0]byte)(C.fetch), 1)
 	C.rb_define_singleton_method(rb_cGoSnow, C.CString("library_version"), (*[0]byte)(C.hello), 0)

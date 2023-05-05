@@ -19,11 +19,12 @@ rb_raise2(VALUE exc, const char *str) {
 void goobj_retain(void *);
 void goobj_free(void *);
 void goobj_log(void *);
+void goobj_mark(void *);
 
 static const rb_data_type_t go_type = {
     "GoStruct",
     {
-			goobj_log,
+			goobj_mark,
 			goobj_free,
 			NULL,
 			goobj_log
@@ -35,7 +36,13 @@ VALUE
 NewGoStruct(VALUE klass, void *p)
 {
     goobj_retain(p);
+		rb_gc_register_address(p);
     return TypedData_Wrap_Struct((klass), &go_type, p);
+}
+
+VALUE ReturnEnumerator(VALUE cls) {
+	RETURN_ENUMERATOR(cls, 0, NULL);
+	return Qnil;
 }
 
 void *
