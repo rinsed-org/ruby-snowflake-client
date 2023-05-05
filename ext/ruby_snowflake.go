@@ -4,7 +4,7 @@ package main
 #include <stdlib.h>
 #include "ruby/ruby.h"
 void Connect(VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE);
-void ObjFetch(VALUE,VALUE);
+VALUE ObjFetch(VALUE,VALUE);
 VALUE ObjNextRow(VALUE);
 VALUE Inspect(VALUE);
 VALUE GetRows(VALUE);
@@ -16,6 +16,7 @@ void* GetGoStruct(VALUE obj);
 void RbGcGuard(VALUE ptr);
 VALUE ReturnEnumerator(VALUE cls);
 VALUE RbNumFromDouble(double v);
+static const rb_data_type_t snowflakeResult;
 */
 import "C"
 
@@ -38,8 +39,10 @@ type RubySnowflake struct {
 	keptHash C.VALUE
 }
 
-var rbSnowflakeClass C.VALUE
+var rbSnowflakeClientClass C.VALUE
+var rbSnowflakeResultClass C.VALUE
 var rbSnowflakeModule C.VALUE
+
 var DB_IDENTIFIER = C.rb_intern(C.CString("db"))
 
 var objects = make(map[interface{}]bool)
@@ -102,7 +105,7 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 	rs := RubySnowflake{db, nil, C.Qnil}
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
-		rbSnowflakeClass,
+		rbSnowflakeClientClass,
 		ptr,
 	)
 
@@ -118,7 +121,7 @@ func Close(db_pointer unsafe.Pointer) {
 }
 
 //export ObjFetch
-func ObjFetch(self C.VALUE, statement C.VALUE) {
+func ObjFetch(self C.VALUE, statement C.VALUE) C.VALUE {
 	var q C.VALUE
 	q = C.rb_ivar_get(self, DB_IDENTIFIER)
 
@@ -147,7 +150,32 @@ func ObjFetch(self C.VALUE, statement C.VALUE) {
 	}
 	x.rows = rows
 
-	return
+	//snowflakeResult := C.rb_data_type_t{
+	//C.CString("Snowflake::Result"),
+	//C.Cstruct{
+	//goobj_mark,
+	//goobj_free,
+	//C.Qnil,
+	//goobj_log,
+	//},
+	//0,
+	//0,
+	//C.RUBY_TYPED_FREE_IMMEDIATELY,
+	//}
+	//return C.TypedData_Wrap_Struct(rbSnowflakeResultClass, &C.snowflakeResult, x)
+	//return C.rb_data_typed_object_wrap(rbSnowflakeClientClass, unsafe.Pointer(x), &C.snowflakeResult)
+	var bla C.VALUE
+	result := C.rb_class_new_instance(0, &bla, rbSnowflakeResultClass)
+	rs := RubySnowflake{nil, rows, C.Qnil}
+	ptr := gopointer.Save(&rs)
+	rbStruct := C.NewGoStruct(
+		rbSnowflakeClientClass,
+		ptr,
+	)
+	C.rb_ivar_set(result, DB_IDENTIFIER, rbStruct)
+	return result
+	//return C.rb_data_typed_object_wrap(rbSnowflakeClientClass, unsafe.Pointer(x), &C.snowflakeResult)
+	// TypedData_Wrap_Struct
 }
 
 //export Inspect
@@ -359,16 +387,21 @@ func ObjNextRow(self C.VALUE) C.VALUE {
 
 //export Init_ruby_snowflake_client
 func Init_ruby_snowflake_client() {
-	rbSnowflakeModule = C.rb_define_module(C.CString("AlexLibrary"))
-	rbSnowflakeClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Snow"), C.rb_cObject)
+	rbSnowflakeModule = C.rb_define_module(C.CString("Snowflake"))
+	rbSnowflakeClientClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Client"), C.rb_cObject)
+	rbSnowflakeResultClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Result"), C.rb_cObject)
 
-	C.rb_define_method(rbSnowflakeClass, C.CString("connect"), (*[0]byte)(C.Connect), 7)
-	C.rb_define_method(rbSnowflakeClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
-	C.rb_define_method(rbSnowflakeClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
-	C.rb_define_method(rbSnowflakeClass, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
-	C.rb_define_method(rbSnowflakeClass, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
-	C.rb_define_method(rbSnowflakeClass, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
-	C.rb_define_method(rbSnowflakeClass, C.CString("get_all_rows"), (*[0]byte)(C.GetAllRows), 0)
+	C.rb_define_method(rbSnowflakeResultClass, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
+	C.rb_define_method(rbSnowflakeResultClass, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
+	C.rb_define_method(rbSnowflakeResultClass, C.CString("get_all_rows"), (*[0]byte)(C.GetAllRows), 0)
+
+	//C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.ResultInspect), 0)
+	//C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.ResultInspect), 0)
+
+	C.rb_define_method(rbSnowflakeClientClass, C.CString("connect"), (*[0]byte)(C.Connect), 7)
+	C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
+	C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
+	C.rb_define_method(rbSnowflakeClientClass, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
 
 	//C.rb_define_singleton_method(rbSnowflakeModule, C.CString("library_version"), (*[0]byte)(C.library_version), 0)
 

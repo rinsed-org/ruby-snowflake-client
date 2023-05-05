@@ -66,6 +66,15 @@ import (
 	"unsafe"
 )
 
+/*
+
+VALUE NewResult(VALUE klass, void *p) {
+    goobj_retain(p);
+    return TypedData_Wrap_Struct((klass), &snowflakeResult, p);
+}
+
+*/
+
 func rb_define_method(klass C.VALUE, name string, fun unsafe.Pointer, args int) {
 	cname := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&name)))[0]))
 	C.rb_define_method(klass, cname, (*[0]byte)(fun), C.int(args))
