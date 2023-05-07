@@ -5,6 +5,8 @@ package main
 #include "ruby/ruby.h"
 
 VALUE ReturnEnumerator(VALUE cls);
+void RbGcGuard(VALUE ptr);
+//VALUE RbHashWithSize(int size);
 */
 import "C"
 
@@ -98,12 +100,16 @@ func GetRows(self C.VALUE) C.VALUE {
 	i := 0
 	t1 := time.Now()
 	for rows.Next() {
+		//for i < 50000 {
 		if i%5000 == 0 {
 			if LOG_LEVEL > 0 {
 				fmt.Println("scanning row: ", i)
 			}
 		}
-		C.rb_yield(res.ScanNextRow(false))
+		x := res.ScanNextRow(false)
+		//x := RbString("abctest")
+		//C.RbGcGuard(x)
+		C.rb_yield(x)
 		i = i + 1
 	}
 	if LOG_LEVEL > 0 {
@@ -168,7 +174,40 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	} else {
 		hash = res.keptHash
 	}
+	return hash
 	//C.RbGcGuard(hash)
+	//if res.cols == C.Qnil {
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println("SETTING COLS")
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//cols := C.rb_hash_new() //make([]C.VALUE, rowLength)
+	//for idx, col := range columns {
+	//C.rb_hash_aset(cols, INT2NUM(idx), C.rb_intern(C.CString(strings.ToLower(col))))
+	//}
+	//res.cols = cols
+	//C.rb_obj_freeze(res.cols)
+	//}
+	//if len(res.cols) == 0 {
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println("SETTING COLS")
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	//fmt.Println()
+	cols := make([]C.VALUE, rowLength)
+	for idx, colName := range columns {
+		//cols[idx] = RbString(strings.ToLower(colName))
+		cols[idx] = C.rb_intern(C.CString(strings.ToLower(colName)))
+	}
 
 	for idx, raw := range rawResult {
 		//fix go pointer for for loop variable
@@ -176,24 +215,28 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 			fmt.Printf("here4 - %d\n", idx)
 		}
 		raw := raw
-		col_name := RbString(strings.ToLower(columns[idx]))
+		col_name := cols[idx]
+		//col_name := RbString(strings.ToLower(columns[idx]))
+		//col_name := C.rb_intern(C.CString(strings.ToLower(columns[idx])))
+		//col_name := C.rb_hash_aref(res.cols, INT2NUM((idx)))
 		if raw == nil {
 			C.rb_hash_aset(hash, col_name, C.Qnil)
 		} else {
 			switch v := raw.(type) {
 			case float64:
-				C.rb_hash_aset(hash, col_name, RbNumFromDouble(C.double(v)))
+				//C.rb_hash_aset(hash, col_name, C.rb_float_new(C.double(v)))
 			case bool:
-				var qq C.VALUE
-				qq = C.Qfalse
+				qq := C.Qfalse
 				if v {
 					qq = C.Qtrue
 				}
-				C.rb_hash_aset(hash, col_name, qq)
+				fmt.Println(qq)
+				//C.rb_hash_aset(hash, col_name, qq)
 			case time.Time:
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				qq := C.rb_time_timespec_new(ts, 0)
-				C.rb_hash_aset(hash, col_name, qq)
+				fmt.Println(qq)
+				//C.rb_hash_aset(hash, col_name, qq)
 			default:
 				str := fmt.Sprintf("%v", raw)
 				C.rb_hash_aset(hash, col_name, RbString(str))
@@ -201,7 +244,10 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		}
 	}
 
-	res.keptHash = C.rb_hash_dup(hash)
+	//C.rb_obj_freeze(hash)
+	//dup := C.rb_hash_dup(hash)
+	//C.RbGcGuard(dup)
+	//res.keptHash = dup
 
 	return hash
 }

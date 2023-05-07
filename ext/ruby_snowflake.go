@@ -32,6 +32,8 @@ import (
 type SnowflakeResult struct {
 	rows     *sql.Rows
 	keptHash C.VALUE
+	cols     C.VALUE
+	//cols     []C.VALUE
 }
 type SnowflakeClient struct {
 	db *sql.DB
@@ -46,7 +48,7 @@ var RESULT_IDENTIFIER = C.rb_intern(C.CString("rows"))
 
 var objects = make(map[interface{}]bool)
 
-var LOG_LEVEL = 0
+var LOG_LEVEL = 1
 
 //export Connect
 func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE, schema C.VALUE, user C.VALUE, password C.VALUE, role C.VALUE) {
@@ -101,7 +103,8 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 
 	var bla C.VALUE
 	result := C.rb_class_new_instance(0, &bla, rbSnowflakeResultClass)
-	rs := SnowflakeResult{rows, C.Qnil}
+	rs := SnowflakeResult{rows, C.Qnil, C.Qnil}
+	//rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
 		rbSnowflakeClientClass,

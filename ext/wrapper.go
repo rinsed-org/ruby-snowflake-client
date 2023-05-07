@@ -1,7 +1,7 @@
 package main
 
 /*
-#include <ruby/ruby.h>
+#include "ruby/ruby.h"
 
 const char *
 rstring_ptr(VALUE str) {
@@ -24,6 +24,11 @@ void goobj_retain(void *);
 void goobj_free(void *);
 void goobj_log(void *);
 void goobj_mark(void *);
+void goobj_compact(void *);
+
+//VALUE RbHashWithSize(int size) {
+	//return rb_hash_new_with_size(size);
+//}
 
 static const rb_data_type_t go_type = {
     "GoStruct",
@@ -31,7 +36,7 @@ static const rb_data_type_t go_type = {
 			goobj_mark,
 			goobj_free,
 			NULL,
-			goobj_log
+			(goobj_compact),
 		},
     0, 0, RUBY_TYPED_FREE_IMMEDIATELY
 };
@@ -40,8 +45,8 @@ VALUE
 NewGoStruct(VALUE klass, void *p)
 {
     goobj_retain(p);
-		rb_gc_register_address(p);
-    return TypedData_Wrap_Struct((klass), &go_type, p);
+		//rb_gc_register_address(p);
+    return TypedData_Wrap_Struct(klass, &go_type, p);
 }
 
 VALUE ReturnEnumerator(VALUE cls) {
@@ -53,7 +58,7 @@ void *
 GetGoStruct(VALUE obj)
 {
     void *val;
-    return TypedData_Get_Struct((obj), void *, &go_type, (val));
+    return TypedData_Get_Struct(obj, void *, &go_type, val);
 }
 
 void RbGcGuard(VALUE ptr) {
@@ -105,8 +110,8 @@ func RbString(str string) C.VALUE {
 	if len(str) == 0 {
 		return C.rb_utf8_str_new(nil, C.long(0))
 	}
-	cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
-	return C.rb_utf8_str_new(cstr, C.long(len(str)))
+	//cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
+	return C.rb_utf8_str_new(C.CString(str), C.long(len(str)))
 }
 
 func rb_define_class(name string, parent C.VALUE) C.VALUE {

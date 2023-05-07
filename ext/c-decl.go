@@ -11,10 +11,13 @@ import (
 	"unsafe"
 )
 
+var marked = make(map[unsafe.Pointer]int)
+
 //export goobj_mark
 func goobj_mark(obj unsafe.Pointer) {
 	if LOG_LEVEL > 0 {
-		fmt.Println("MARK log obj", obj)
+		marked[obj] = marked[obj] + 1
+		fmt.Printf("MARK log obj %v; counter: %d; total number of MARKED objects: %d\n", obj, marked[obj], len(marked))
 	}
 }
 
@@ -28,15 +31,24 @@ func goobj_log(obj unsafe.Pointer) {
 //export goobj_retain
 func goobj_retain(obj unsafe.Pointer) {
 	if LOG_LEVEL > 0 {
-		fmt.Println("retain obj")
+		fmt.Printf("retain obj %v - currently keeping %d\n", obj, len(objects))
 	}
 	objects[obj] = true
+	marked[obj] = 0
 }
 
 //export goobj_free
 func goobj_free(obj unsafe.Pointer) {
 	if LOG_LEVEL > 0 {
-		fmt.Println("CALLED GOOBJ FREE")
+		fmt.Printf("CALLED GOOBJ FREE %v - CURRENTLY %d objects left\n", obj, len(objects))
 	}
 	delete(objects, obj)
+	delete(marked, obj)
+}
+
+//export goobj_compact
+func goobj_compact(obj unsafe.Pointer) {
+	if LOG_LEVEL > 0 {
+		fmt.Printf("CALLED GOOBJ COMPACT %v", obj)
+	}
 }
