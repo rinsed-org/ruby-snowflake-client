@@ -99,6 +99,29 @@ func GetRows(self C.VALUE) C.VALUE {
 
 	i := 0
 	t1 := time.Now()
+
+	var hash C.VALUE
+
+	// trick from postgres; keep hash: pg_result.c:1088
+	if res.keptHash == C.Qnil {
+		hash = C.rb_hash_new()
+	} else {
+		hash = res.keptHash
+	}
+
+	columns, _ := rows.Columns()
+
+	cols := make([]C.VALUE, len(columns))
+	for idx, colName := range columns {
+		//cols[idx] = RbString(strings.ToLower(colName))
+		sym := C.rb_intern(C.CString(strings.ToLower(colName)))
+		cols[idx] = sym
+		C.rb_hash_aset(hash, sym, C.Qnil)
+	}
+
+	res.cols = cols
+	res.keptHash = hash
+
 	for rows.Next() {
 		//for i < 50000 {
 		if i%5000 == 0 {
@@ -150,7 +173,7 @@ func (x SnowflakeResult) ScanAllRows() []rowResult {
 	return res
 }
 
-func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
+func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	rows := res.rows
 	columns, _ := rows.Columns()
 	rowLength := len(columns)
@@ -174,7 +197,7 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	} else {
 		hash = res.keptHash
 	}
-	return hash
+	//return hash
 	//C.RbGcGuard(hash)
 	//if res.cols == C.Qnil {
 	//fmt.Println()
@@ -215,31 +238,39 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 			fmt.Printf("here4 - %d\n", idx)
 		}
 		raw := raw
+		fmt.Println(raw)
 		col_name := cols[idx]
 		//col_name := RbString(strings.ToLower(columns[idx]))
 		//col_name := C.rb_intern(C.CString(strings.ToLower(columns[idx])))
 		//col_name := C.rb_hash_aref(res.cols, INT2NUM((idx)))
+		//C.rb_hash_aset(hash, col_name, C.Qnil)
+
 		if raw == nil {
 			C.rb_hash_aset(hash, col_name, C.Qnil)
 		} else {
 			switch v := raw.(type) {
 			case float64:
-				//C.rb_hash_aset(hash, col_name, C.rb_float_new(C.double(v)))
+				fmt.Println(v)
+				//dbl := RbNumFromDouble(C.double(v)
+				//C.rb_hash_aset(hash, col_name, dbl)
 			case bool:
-				qq := C.Qfalse
+				var qq C.VALUE
+				qq = C.Qfalse
 				if v {
 					qq = C.Qtrue
 				}
 				fmt.Println(qq)
-				//C.rb_hash_aset(hash, col_name, qq)
+				C.rb_hash_aset(hash, col_name, qq)
 			case time.Time:
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				qq := C.rb_time_timespec_new(ts, 0)
 				fmt.Println(qq)
 				//C.rb_hash_aset(hash, col_name, qq)
 			default:
+				//str := fmt.Sprintf("%v", raw)
 				str := fmt.Sprintf("%v", raw)
-				C.rb_hash_aset(hash, col_name, RbString(str))
+				fmt.Println(str)
+				//C.rb_hash_aset(hash, col_name, RbString(str))
 			}
 		}
 	}

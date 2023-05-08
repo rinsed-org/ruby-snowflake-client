@@ -32,8 +32,8 @@ import (
 type SnowflakeResult struct {
 	rows     *sql.Rows
 	keptHash C.VALUE
-	cols     C.VALUE
-	//cols     []C.VALUE
+	//cols     C.VALUE
+	cols []C.VALUE
 }
 type SnowflakeClient struct {
 	db *sql.DB
@@ -103,8 +103,8 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 
 	var bla C.VALUE
 	result := C.rb_class_new_instance(0, &bla, rbSnowflakeResultClass)
-	rs := SnowflakeResult{rows, C.Qnil, C.Qnil}
-	//rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}
+	//rs := SnowflakeResult{rows, C.Qnil, C.Qnil}
+	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
 		rbSnowflakeClientClass,
