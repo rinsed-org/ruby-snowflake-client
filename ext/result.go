@@ -114,7 +114,13 @@ func GetRows(self C.VALUE) C.VALUE {
 	cols := make([]C.VALUE, len(columns))
 	for idx, colName := range columns {
 		//cols[idx] = RbString(strings.ToLower(colName))
-		sym := C.rb_intern(C.CString(strings.ToLower(colName)))
+		str := strings.ToLower(colName)
+		//sym := RbString(str)
+
+		//sym := C.rb_str_new(C.CString(str), C.long(len(str)))
+		sym := C.rb_str_new2(C.CString(str)) //, C.long(len(str)))
+		sym = C.rb_obj_freeze(sym)
+		//sym := C.rb_intern(C.CString(strings.ToLower(colName)))
 		cols[idx] = sym
 		C.rb_hash_aset(hash, sym, C.Qnil)
 	}
@@ -173,7 +179,7 @@ func (x SnowflakeResult) ScanAllRows() []rowResult {
 	return res
 }
 
-func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
+func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	rows := res.rows
 	columns, _ := rows.Columns()
 	rowLength := len(columns)
@@ -189,14 +195,14 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		rb_raise(C.rb_eArgError, "Cannot scan row: '%s'", err)
 	}
 
-	var hash C.VALUE
+	hash := res.keptHash
 
-	// trick from postgres; keep hash: pg_result.c:1088
-	if res.keptHash == C.Qnil {
-		hash = C.rb_hash_new()
-	} else {
-		hash = res.keptHash
-	}
+	//// trick from postgres; keep hash: pg_result.c:1088
+	//if res.keptHash == C.Qnil {
+	//hash = C.rb_hash_new()
+	//} else {
+	//hash = res.keptHash
+	//}
 	//return hash
 	//C.RbGcGuard(hash)
 	//if res.cols == C.Qnil {
@@ -226,11 +232,11 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	//fmt.Println()
 	//fmt.Println()
 	//fmt.Println()
-	cols := make([]C.VALUE, rowLength)
-	for idx, colName := range columns {
-		//cols[idx] = RbString(strings.ToLower(colName))
-		cols[idx] = C.rb_intern(C.CString(strings.ToLower(colName)))
-	}
+	//cols := make([]C.VALUE, rowLength)
+	//for idx, colName := range columns {
+	////cols[idx] = RbString(strings.ToLower(colName))
+	//cols[idx] = C.rb_intern(C.CString(strings.ToLower(colName)))
+	//}
 
 	for idx, raw := range rawResult {
 		//fix go pointer for for loop variable
@@ -238,8 +244,7 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 			fmt.Printf("here4 - %d\n", idx)
 		}
 		raw := raw
-		fmt.Println(raw)
-		col_name := cols[idx]
+		col_name := res.cols[idx]
 		//col_name := RbString(strings.ToLower(columns[idx]))
 		//col_name := C.rb_intern(C.CString(strings.ToLower(columns[idx])))
 		//col_name := C.rb_hash_aref(res.cols, INT2NUM((idx)))
@@ -250,35 +255,35 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		} else {
 			switch v := raw.(type) {
 			case float64:
-				fmt.Println(v)
-				//dbl := RbNumFromDouble(C.double(v)
-				//C.rb_hash_aset(hash, col_name, dbl)
+				//fmt.Println(v)
+				dbl := RbNumFromDouble(C.double(v))
+				C.rb_hash_aset(hash, col_name, dbl)
 			case bool:
 				var qq C.VALUE
 				qq = C.Qfalse
 				if v {
 					qq = C.Qtrue
 				}
-				fmt.Println(qq)
+				//fmt.Println(qq)
 				C.rb_hash_aset(hash, col_name, qq)
 			case time.Time:
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				qq := C.rb_time_timespec_new(ts, 0)
-				fmt.Println(qq)
-				//C.rb_hash_aset(hash, col_name, qq)
+				//fmt.Println(qq)
+				C.rb_hash_aset(hash, col_name, qq)
 			default:
 				//str := fmt.Sprintf("%v", raw)
 				str := fmt.Sprintf("%v", raw)
-				fmt.Println(str)
-				//C.rb_hash_aset(hash, col_name, RbString(str))
+				//fmt.Println(str)
+				C.rb_hash_aset(hash, col_name, RbString(str))
 			}
 		}
 	}
 
 	//C.rb_obj_freeze(hash)
-	//dup := C.rb_hash_dup(hash)
+	dup := C.rb_hash_dup(hash)
 	//C.RbGcGuard(dup)
-	//res.keptHash = dup
+	res.keptHash = dup
 
 	return hash
 }
