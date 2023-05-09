@@ -10,20 +10,21 @@ require_relative "../ext/ruby_snowflake_client" # built bundle of the go files
 
 module Snowflake
   class Result
-    FINALIZER = lambda { |object_id| p "finalizing result %d" % object_id }
-
-    def get_rows_rb
+    def get_rows_with_blk(&blk)
       GC.disable
-      arr = _internal_rows.to_a.map(&:to_h)
-      return arr
+      arr = get_rows(&blk)
     ensure
       GC.enable
       GC.start
     end
 
-    private
-      def _internal_rows
-        arr = get_rows.to_a
-      end
+    def get_all_rows
+      GC.disable
+      arr = get_rows.to_a
+      return arr
+    ensure
+      GC.enable
+      GC.start
+    end
   end
 end

@@ -186,10 +186,10 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 
 	//hash := res.keptHash
 	//hash := SafeMakeHash(len(res.cols), res.cols)
-	//hash := C.rb_hash_dup(res.keptHash)
+	hash := C.rb_hash_dup(res.keptHash)
 	//C.RbGcGuard(hash)
 	//objects[hash] = true
-	rbArr := C.rb_ary_new2(C.long(rowLength))
+	//rbArr := C.rb_ary_new2(C.long(rowLength))
 	//C.RbGcGuard(rbArr)
 	//objects[rbArr] = true
 	//C.RbGcGuard(hash)
@@ -263,8 +263,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 			}
 		}
 		//C.rb_ary_store(rbArr, C.long(idx), INT2NUM(123))
-		C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbVal))
-		//C.rb_hash_aset(hash, col_name, rbVal)
+		//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbVal))
+		C.rb_hash_aset(hash, col_name, rbVal)
 		//arr = append(arr, rbVal)
 	}
 	//objects[arr[0]] = true
@@ -280,11 +280,11 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	//zippedArr := C.rb_ary_zip(rbArr, res.colRbArr)
 	//zippedHash := C.rb_funcall0param(rbArr, C.rb_intern(C.CString("to_h")))
 	//return zippedHash
-	C.rb_ivar_set(res.rbInstance, C.rb_intern(C.CString("@latest_row")), (rbArr))
+	//C.rb_ivar_set(res.rbInstance, C.rb_intern(C.CString("@latest_row")), (rbArr))
 
 	//C.rb_ivar_set(result, RESULT_IDENTIFIER, rbStruct)
 
-	return rbArr
+	return hash
 	//return hash
 }
 
@@ -345,6 +345,6 @@ func (res *SnowflakeResult) Initialize() {
 
 	res.cols = cols
 	//res.keptHash = hash
-	//res.keptHash = SafeMakeHash(len(columns), cols)
+	res.keptHash = SafeMakeHash(len(columns), cols)
 	res.colRbArr = rbArr
 }
