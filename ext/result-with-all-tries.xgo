@@ -9,7 +9,6 @@ package main
 VALUE ReturnEnumerator(VALUE cls);
 void RbGcGuard(VALUE ptr);
 VALUE createRbString(char* str);
-VALUE funcall0param(VALUE obj, ID id);
 //void RbEnc();
 //VALUE MakeRbString(char* str);
 //VALUE RbHashWithSize(int size);
@@ -61,7 +60,7 @@ func GetAllRows(self C.VALUE) C.VALUE {
 	arr := []any{}
 	t1 := time.Now()
 	for rows.Next() {
-		if i%1 == 0 {
+		if i%100 == 0 {
 			if LOG_LEVEL > 0 {
 				fmt.Println("scanning row: ", i)
 			}
@@ -110,20 +109,14 @@ func GetRows(self C.VALUE) C.VALUE {
 	for rows.Next() {
 		//for i < 50000 {
 		if i%5000 == 0 {
-			//if i%1 == 0 {
 			if LOG_LEVEL > 0 {
 				fmt.Println("scanning row: ", i)
 			}
 		}
 		x := res.ScanNextRow(false)
-		objects[x] = true
 		//x := RbString("abctest")
-		C.RbGcGuard(x)
-		//C.funccall(x, rb_intern("to_h"), 0)
-		//C.rb_yield(x)
-		//var empty C.VALUE
-		//C.rb_yield(C.rb_funcall(x, C.rb_intern(C.CString("to_h")), C.int(0), &empty))
-		C.rb_yield(C.funcall0param(x, C.rb_intern(C.CString("to_h"))))
+		//C.RbGcGuard(x)
+		C.rb_yield(x)
 		i = i + 1
 	}
 	if LOG_LEVEL > 0 {
@@ -184,10 +177,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	//hash := C.rb_hash_dup(res.keptHash)
 	//hash := SafeMakeHash(len(res.cols), res.cols)
 	//C.RbGcGuard(hash)
-	//objects[hash] = true
 	rbArr := C.rb_ary_new2(C.long(rowLength))
 	C.RbGcGuard(rbArr)
-	objects[rbArr] = true
 	//C.RbGcGuard(hash)
 
 	//fmt.Println("hashID - ", hash)
@@ -198,7 +189,7 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 
 		raw := raw
 		col_name := res.cols[idx]
-		//fmt.Println(col_name)
+		fmt.Println(col_name)
 
 		if raw == nil {
 			//C.rb_hash_aset(hash, col_name, C.Qnil)
@@ -209,8 +200,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 			case float64:
 				//fmt.Println("float", v)
 				//C.rb_hash_aset(hash, col_name, RbNumFromDouble(C.double(v)))
-				//C.rb_ary_store(rbArr, C.long(idx), RbNumFromDouble(C.double(v)))
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbNumFromDouble(C.double(v))))
+				C.rb_ary_store(rbArr, C.long(idx), RbNumFromDouble(C.double(v)))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbNumFromDouble(C.double(v))))
 			case bool:
 				//fmt.Println("bool")
 				var boolean C.VALUE
@@ -219,24 +210,89 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 					boolean = C.Qtrue
 				}
 				//C.rb_hash_aset(hash, col_name, boolean)
-				//C.rb_ary_store(rbArr, C.long(idx), boolean)
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, boolean))
+				C.rb_ary_store(rbArr, C.long(idx), boolean)
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, boolean))
 			case time.Time:
 				//fmt.Println("time")
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				rbTs := C.rb_time_timespec_new(ts, 0)
 				//C.rb_hash_aset(hash, col_name, rbTs)
-				//C.rb_ary_store(rbArr, C.long(idx), rbTs)
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbTs))
+				C.rb_ary_store(rbArr, C.long(idx), rbTs)
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbTs))
 			case string:
+				//str := fmt.Sprintf("(%v)", raw)
 				str := v
-				//C.rb_ary_store(rbArr, C.long(idx), RbString(str))
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbString(str)))
-				objects[str] = true
-				//x := RbString(str)
-				//objects[x] = true
-				//C.rb_hash_aset(hash, col_name, x)
+				//b := utf8.ValidString(str)
+				//if b == false {
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println("invalid UTF8 ", v)
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//}
+				//str := RandStringBytesRmndr(15)
+				//fmt.Printf("default %T; (%s)\n", raw, str)
+				//sym := C.rb_str_new2(C.CString(str))
+				//sym := C.rb_tainted_str_new2(C.CString(str))
+				//sym := C.rb_tainted_str_new_cstr(C.CString(str))
+				//cstr := C.CString(str)
+				//sym := C.rb_external_str_new_cstr(cstr)
+				//sym := C.rb_str_new(cstr, C.long(len(str)))
+				//rb_enc := C.RbEnc()
+				//rb_enc := C.rb_utf8_encoding()
+				//C.rb_enc_associate(sym, rb_enc)
 
+				//sym := C.rb_utf8_str_new_cstr(cstr)
+				//sym := C.rb_str_new_cstr(unsafe.Pointer(cstr))
+				//C.free(unsafe.Pointer(cstr))
+				//sym := C.rb_str_new_static(cstr, len(str))
+				//C.RbGcGuard(sym)
+				//sym := RbString(str)
+				//C.rb_str_modify(sym)
+				//C.RbGcGuard(sym)
+
+				//enc_idx := C.GetEncoding(cstr)
+				//C.rb_enc_set_index(sym, enc_idx)
+
+				//rb_enc_set_index((obj), (i)); \
+
+				//C.rb_str_new2(C.CString(str))
+				//sym = C.rb_str_freeze(sym)
+				//sym := RbString(letterBytes)
+				//cstr := C.CString(str)
+				//sym := C.rb_external_str_new_cstr(cstr)
+				//sym := C.rb_str_new2(cstr, C.long(len(str)))
+				//C.rb_str_new2(cstr)
+				//fmt.Printf("string ; (%s) %v\n", str, sym)
+				//rb_tainted_str_new
+				//objects[sym] = true
+				//C.rb_tainted_str_new_cstr(C.CString(str))
+				//cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
+				//q := C.createRbString(C.CString("123"))
+				//C.RbGcGuard(q)
+				//q := C.rb_utf8_str_new(C.CString(str))
+
+				//C.rb_ary_store(rbArr, C.long(idx), RbString(str))
+				objects[str] = true
+
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbString(str)))
+				//C.rb_hash_aset(hash, col_name, RbString(str))
+				//C.RbGcGuard(q)
+				//C.rb_hash_aset(hash, col_name, C.rb_utf8_str_new_cstr(C.CString(str)))
+				//INT64toNUM(123456),
+				//RbString(str),
+				//C.rb_str_new2(C.CString(str)),
+				//C.Qnil,
+				//)
+				//C.RbGcGuard(sym)
+				////C.rb_str_new2(C.CString(fmt.Sprintf("%v", raw))),
+				////C.rb_str_new2(C.CString(fmt.Sprintf("%v", raw))),
+				//)
 			default:
 				fmt.Println("default %T", v)
 			}
@@ -253,8 +309,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	//zippedHash := C.rb_funcall(zippedArr, C.rb_intern(C.CString("to_h")))
 	//return zippedHash
 
+	//return rbArr
 	return rbArr
-	//return hash
 }
 
 func StoreInArrSize2(v1 C.VALUE, v2 C.VALUE) C.VALUE {
@@ -262,7 +318,6 @@ func StoreInArrSize2(v1 C.VALUE, v2 C.VALUE) C.VALUE {
 	C.rb_ary_store(arr, 0, v1)
 	C.rb_ary_store(arr, 1, v2)
 	C.RbGcGuard(arr)
-	objects[arr] = true
 	return arr
 }
 

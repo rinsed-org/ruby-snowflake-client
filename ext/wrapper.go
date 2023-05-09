@@ -71,6 +71,10 @@ VALUE createRbString(char* str) {
 	return rbStr;
 }
 
+VALUE funcall0param(VALUE obj, ID id) {
+	return rb_funcall(obj, id, 0);
+}
+
 */
 import "C"
 import (
