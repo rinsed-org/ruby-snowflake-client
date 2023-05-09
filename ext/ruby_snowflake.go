@@ -103,8 +103,8 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 
 	var bla C.VALUE
 	result := C.rb_class_new_instance(0, &bla, rbSnowflakeResultClass)
-	//rs := SnowflakeResult{rows, C.Qnil, C.Qnil}
 	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}
+	rs.Initialize()
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
 		rbSnowflakeClientClass,

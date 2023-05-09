@@ -3,9 +3,14 @@ package main
 /*
 #include <stdlib.h>
 #include "ruby/ruby.h"
+#include "ruby/encoding.h"
+//#include "ruby/internal/hash.h"
 
 VALUE ReturnEnumerator(VALUE cls);
 void RbGcGuard(VALUE ptr);
+VALUE createRbString(char* str);
+//void RbEnc();
+//VALUE MakeRbString(char* str);
 //VALUE RbHashWithSize(int size);
 */
 import "C"
@@ -14,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -100,29 +106,6 @@ func GetRows(self C.VALUE) C.VALUE {
 	i := 0
 	t1 := time.Now()
 
-	var hash C.VALUE
-
-	// trick from postgres; keep hash: pg_result.c:1088
-	if res.keptHash == C.Qnil {
-		hash = C.rb_hash_new()
-	} else {
-		hash = res.keptHash
-	}
-
-	columns, _ := rows.Columns()
-
-	cols := make([]C.VALUE, len(columns))
-	for idx, colName := range columns {
-		str := strings.ToLower(colName)
-		sym := C.rb_str_new2(C.CString(str)) //, C.long(len(str)))
-		sym = C.rb_obj_freeze(sym)
-		cols[idx] = sym
-		C.rb_hash_aset(hash, sym, C.Qnil)
-	}
-
-	res.cols = cols
-	res.keptHash = hash
-
 	for rows.Next() {
 		//for i < 50000 {
 		if i%5000 == 0 {
@@ -174,7 +157,7 @@ func (x SnowflakeResult) ScanAllRows() []rowResult {
 	return res
 }
 
-func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
+func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	rows := res.rows
 	columns, _ := rows.Columns()
 	rowLength := len(columns)
@@ -191,8 +174,14 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	}
 
 	hash := res.keptHash
+	//hash := SafeMakeHash(len(res.cols), res.cols)
 
+	//fmt.Println("hashID - ", hash)
 	for idx, raw := range rawResult {
+		//C.createRbString(C.CString("123"))
+		//C.rb_utf8_str_new_cstr(C.CString("123"))
+		//continue
+
 		raw := raw
 		col_name := res.cols[idx]
 
@@ -201,8 +190,10 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		} else {
 			switch v := raw.(type) {
 			case float64:
+				//fmt.Println("float", v)
 				C.rb_hash_aset(hash, col_name, RbNumFromDouble(C.double(v)))
 			case bool:
+				//fmt.Println("bool")
 				var boolean C.VALUE
 				boolean = C.Qfalse
 				if v {
@@ -210,19 +201,137 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				}
 				C.rb_hash_aset(hash, col_name, boolean)
 			case time.Time:
+				//fmt.Println("time")
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				rbTs := C.rb_time_timespec_new(ts, 0)
 				C.rb_hash_aset(hash, col_name, rbTs)
+			case int64:
+				fmt.Println("int64")
+			case string:
+				//str := fmt.Sprintf("(%v)", raw)
+				str := v
+				//b := utf8.ValidString(str)
+				//if b == false {
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println("invalid UTF8 ", v)
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//fmt.Println()
+				//}
+				//str := RandStringBytesRmndr(15)
+				//fmt.Printf("default %T; (%s)\n", raw, str)
+				//sym := C.rb_str_new2(C.CString(str))
+				//sym := C.rb_tainted_str_new2(C.CString(str))
+				//sym := C.rb_tainted_str_new_cstr(C.CString(str))
+				//cstr := C.CString(str)
+				//sym := C.rb_external_str_new_cstr(cstr)
+				//sym := C.rb_str_new(cstr, C.long(len(str)))
+				//rb_enc := C.RbEnc()
+				//rb_enc := C.rb_utf8_encoding()
+				//C.rb_enc_associate(sym, rb_enc)
+
+				//sym := C.rb_utf8_str_new_cstr(cstr)
+				//sym := C.rb_str_new_cstr(unsafe.Pointer(cstr))
+				//C.free(unsafe.Pointer(cstr))
+				//sym := C.rb_str_new_static(cstr, len(str))
+				//C.RbGcGuard(sym)
+				//sym := RbString(str)
+				//C.rb_str_modify(sym)
+				//C.RbGcGuard(sym)
+
+				//enc_idx := C.GetEncoding(cstr)
+				//C.rb_enc_set_index(sym, enc_idx)
+
+				//rb_enc_set_index((obj), (i)); \
+
+				//C.rb_str_new2(C.CString(str))
+				//sym = C.rb_str_freeze(sym)
+				//sym := RbString(letterBytes)
+				//cstr := C.CString(str)
+				//sym := C.rb_external_str_new_cstr(cstr)
+				//sym := C.rb_str_new2(cstr, C.long(len(str)))
+				//C.rb_str_new2(cstr)
+				//fmt.Printf("string ; (%s) %v\n", str, sym)
+				//rb_tainted_str_new
+				//objects[sym] = true
+				//C.rb_tainted_str_new_cstr(C.CString(str))
+				//cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
+				//q := C.createRbString(C.CString("123"))
+				//C.RbGcGuard(q)
+				C.rb_hash_aset(
+					hash,
+					col_name,
+					C.rb_utf8_str_new_cstr(C.CString(str)),
+				)
+				//INT64toNUM(123456),
+				//RbString(str),
+				//C.rb_str_new2(C.CString(str)),
+				//C.Qnil,
+				//)
+				//C.RbGcGuard(sym)
+				////C.rb_str_new2(C.CString(fmt.Sprintf("%v", raw))),
+				////C.rb_str_new2(C.CString(fmt.Sprintf("%v", raw))),
+				//)
 			default:
-				C.rb_hash_aset(hash, col_name, RbString(fmt.Sprintf("%v", raw)))
+				fmt.Println("default %T", v)
 			}
 		}
 	}
 
 	//C.rb_obj_freeze(hash)
-	dup := C.rb_hash_dup(hash)
+	//dup := C.rb_hash_dup(hash)
+	//res.keptHash = dup
 	//C.RbGcGuard(dup)
-	res.keptHash = dup
+	//res.keptHash = SafeMakeHash(len(res.cols), res.cols)
 
 	return hash
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandStringBytesRmndr(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
+	}
+	return string(b)
+}
+
+func SafeMakeHash(lenght int, cols []C.VALUE) C.VALUE {
+	var hash C.VALUE
+	hash = C.rb_hash_new()
+
+	fmt.Println("starting make hash")
+	for _, col := range cols {
+		C.rb_hash_aset(hash, col, C.Qnil)
+	}
+	fmt.Println("end make hash", hash)
+	return hash
+}
+
+func (res *SnowflakeResult) Initialize() {
+	//var hash C.VALUE
+
+	//// trick from postgres; keep hash: pg_result.c:1088
+	//hash = C.rb_hash_new()
+
+	columns, _ := res.rows.Columns()
+
+	cols := make([]C.VALUE, len(columns))
+	for idx, colName := range columns {
+		str := strings.ToLower(colName)
+		sym := C.rb_str_new2(C.CString(str))
+		sym = C.rb_str_freeze(sym)
+		//sym = C.rb_obj_freeze(sym)
+		cols[idx] = sym
+	}
+
+	res.cols = cols
+	//res.keptHash = hash
+	res.keptHash = SafeMakeHash(len(columns), cols)
 }
