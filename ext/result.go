@@ -157,7 +157,7 @@ func (x SnowflakeResult) ScanAllRows() []rowResult {
 	return res
 }
 
-func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
+func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	rows := res.rows
 	columns, _ := rows.Columns()
 	rowLength := len(columns)
@@ -173,8 +173,13 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		rb_raise(C.rb_eArgError, "Cannot scan row: '%s'", err)
 	}
 
-	hash := res.keptHash
+	//hash := res.keptHash
+	//hash := C.rb_hash_dup(res.keptHash)
 	//hash := SafeMakeHash(len(res.cols), res.cols)
+	//C.RbGcGuard(hash)
+	rbArr := C.rb_ary_new2(C.long(rowLength))
+	C.RbGcGuard(rbArr)
+	//C.RbGcGuard(hash)
 
 	//fmt.Println("hashID - ", hash)
 	for idx, raw := range rawResult {
@@ -184,14 +189,19 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 
 		raw := raw
 		col_name := res.cols[idx]
+		fmt.Println(col_name)
 
 		if raw == nil {
-			C.rb_hash_aset(hash, col_name, C.Qnil)
+			//C.rb_hash_aset(hash, col_name, C.Qnil)
+			//C.rb_ary_store(rbArr, C.long(idx), C.Qnil)
+			C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, C.Qnil))
 		} else {
 			switch v := raw.(type) {
 			case float64:
 				//fmt.Println("float", v)
-				C.rb_hash_aset(hash, col_name, RbNumFromDouble(C.double(v)))
+				//C.rb_hash_aset(hash, col_name, RbNumFromDouble(C.double(v)))
+				C.rb_ary_store(rbArr, C.long(idx), RbNumFromDouble(C.double(v)))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbNumFromDouble(C.double(v))))
 			case bool:
 				//fmt.Println("bool")
 				var boolean C.VALUE
@@ -199,14 +209,16 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				if v {
 					boolean = C.Qtrue
 				}
-				C.rb_hash_aset(hash, col_name, boolean)
+				//C.rb_hash_aset(hash, col_name, boolean)
+				C.rb_ary_store(rbArr, C.long(idx), boolean)
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, boolean))
 			case time.Time:
 				//fmt.Println("time")
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				rbTs := C.rb_time_timespec_new(ts, 0)
-				C.rb_hash_aset(hash, col_name, rbTs)
-			case int64:
-				fmt.Println("int64")
+				//C.rb_hash_aset(hash, col_name, rbTs)
+				C.rb_ary_store(rbArr, C.long(idx), rbTs)
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbTs))
 			case string:
 				//str := fmt.Sprintf("(%v)", raw)
 				str := v
@@ -263,11 +275,15 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				//cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
 				//q := C.createRbString(C.CString("123"))
 				//C.RbGcGuard(q)
-				C.rb_hash_aset(
-					hash,
-					col_name,
-					C.rb_utf8_str_new_cstr(C.CString(str)),
-				)
+				//q := C.rb_utf8_str_new(C.CString(str))
+
+				//C.rb_ary_store(rbArr, C.long(idx), RbString(str))
+				objects[str] = true
+
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbString(str)))
+				//C.rb_hash_aset(hash, col_name, RbString(str))
+				//C.RbGcGuard(q)
+				//C.rb_hash_aset(hash, col_name, C.rb_utf8_str_new_cstr(C.CString(str)))
 				//INT64toNUM(123456),
 				//RbString(str),
 				//C.rb_str_new2(C.CString(str)),
@@ -289,7 +305,20 @@ func (res *SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	//C.RbGcGuard(dup)
 	//res.keptHash = SafeMakeHash(len(res.cols), res.cols)
 
+	//zippedArr := C.rb_ary_zip(rbArr, res.colRbArr)
+	//zippedHash := C.rb_funcall(zippedArr, C.rb_intern(C.CString("to_h")))
+	//return zippedHash
+
+	//return rbArr
 	return hash
+}
+
+func StoreInArrSize2(v1 C.VALUE, v2 C.VALUE) C.VALUE {
+	arr := C.rb_ary_new2(C.long(2))
+	C.rb_ary_store(arr, 0, v1)
+	C.rb_ary_store(arr, 1, v2)
+	C.RbGcGuard(arr)
+	return arr
 }
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -321,6 +350,7 @@ func (res *SnowflakeResult) Initialize() {
 	//hash = C.rb_hash_new()
 
 	columns, _ := res.rows.Columns()
+	rbArr := C.rb_ary_new2(C.long(len(columns)))
 
 	cols := make([]C.VALUE, len(columns))
 	for idx, colName := range columns {
@@ -329,9 +359,11 @@ func (res *SnowflakeResult) Initialize() {
 		sym = C.rb_str_freeze(sym)
 		//sym = C.rb_obj_freeze(sym)
 		cols[idx] = sym
+		C.rb_ary_store(rbArr, C.long(idx), sym)
 	}
 
 	res.cols = cols
 	//res.keptHash = hash
 	res.keptHash = SafeMakeHash(len(columns), cols)
+	res.colRbArr = rbArr
 }
