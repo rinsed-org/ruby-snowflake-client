@@ -116,14 +116,15 @@ func GetRows(self C.VALUE) C.VALUE {
 			}
 		}
 		x := res.ScanNextRow(false)
-		objects[x] = true
+		res.parsedRows = append(res.parsedRows, x)
+		//objects[x] = true
 		//x := RbString("abctest")
-		C.RbGcGuard(x)
+		//C.RbGcGuard(x)
 		//C.funccall(x, rb_intern("to_h"), 0)
-		//C.rb_yield(x)
+		C.rb_yield(x)
 		//var empty C.VALUE
 		//C.rb_yield(C.rb_funcall(x, C.rb_intern(C.CString("to_h")), C.int(0), &empty))
-		C.rb_yield(C.funcall0param(x, C.rb_intern(C.CString("to_h"))))
+		//C.rb_yield(C.funcall0param(x, TO_H_ID))
 		i = i + 1
 	}
 	if LOG_LEVEL > 0 {
@@ -134,6 +135,8 @@ func GetRows(self C.VALUE) C.VALUE {
 
 	return self
 }
+
+var TO_H_ID = C.rb_intern(C.CString("to_h"))
 
 //export ObjNextRow
 func ObjNextRow(self C.VALUE) C.VALUE {
@@ -181,14 +184,16 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	}
 
 	//hash := res.keptHash
-	//hash := C.rb_hash_dup(res.keptHash)
+	hash := C.rb_hash_dup(res.keptHash)
 	//hash := SafeMakeHash(len(res.cols), res.cols)
+	C.RbGcGuard(hash)
+	objects[hash] = true
+	//rbArr := C.rb_ary_new2(C.long(rowLength))
+	//C.RbGcGuard(rbArr)
+	//objects[rbArr] = true
 	//C.RbGcGuard(hash)
-	//objects[hash] = true
-	rbArr := C.rb_ary_new2(C.long(rowLength))
-	C.RbGcGuard(rbArr)
-	objects[rbArr] = true
-	//C.RbGcGuard(hash)
+
+	var arr []C.VALUE
 
 	//fmt.Println("hashID - ", hash)
 	for idx, raw := range rawResult {
@@ -199,18 +204,22 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		raw := raw
 		col_name := res.cols[idx]
 		//fmt.Println(col_name)
+		var rbVal C.VALUE
+		arr = append(arr, col_name)
 
 		if raw == nil {
 			//C.rb_hash_aset(hash, col_name, C.Qnil)
+			rbVal = C.Qnil
 			//C.rb_ary_store(rbArr, C.long(idx), C.Qnil)
-			C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, C.Qnil))
+			//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, C.Qnil))
 		} else {
 			switch v := raw.(type) {
 			case float64:
 				//fmt.Println("float", v)
-				//C.rb_hash_aset(hash, col_name, RbNumFromDouble(C.double(v)))
+				rbVal = RbNumFromDouble(C.double(v))
+				//C.rb_hash_aset(hash, col_name, rbVal)
 				//C.rb_ary_store(rbArr, C.long(idx), RbNumFromDouble(C.double(v)))
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbNumFromDouble(C.double(v))))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbNumFromDouble(C.double(v))))
 			case bool:
 				//fmt.Println("bool")
 				var boolean C.VALUE
@@ -218,30 +227,43 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				if v {
 					boolean = C.Qtrue
 				}
-				//C.rb_hash_aset(hash, col_name, boolean)
+				rbVal = boolean
+				//C.rb_hash_aset(hash, col_name, rbVal)
 				//C.rb_ary_store(rbArr, C.long(idx), boolean)
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, boolean))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, boolean))
 			case time.Time:
 				//fmt.Println("time")
 				ts := &C.struct_timespec{C.long(v.Unix()), C.long(0)}
 				rbTs := C.rb_time_timespec_new(ts, 0)
-				//C.rb_hash_aset(hash, col_name, rbTs)
+				rbVal = rbTs
+				//C.rb_hash_aset(hash, col_name, rbVal)
 				//C.rb_ary_store(rbArr, C.long(idx), rbTs)
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbTs))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, rbTs))
 			case string:
 				str := v
-				//C.rb_ary_store(rbArr, C.long(idx), RbString(str))
-				C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbString(str)))
 				objects[str] = true
+				rbStr := RbString(str)
+				C.RbGcGuard(rbStr)
+				objects[rbStr] = true
+				fmt.Println("string", str)
+				C.rb_hash_aset(hash, col_name, rbStr)
+				rbVal = rbStr
+				//C.rb_ary_store(rbArr, C.long(idx), INT2NUM(123))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, RbString(str)))
+				//C.rb_ary_store(rbArr, C.long(idx), StoreInArrSize2(col_name, INT2NUM(1)))
+				//objects[str] = true
 				//x := RbString(str)
 				//objects[x] = true
-				//C.rb_hash_aset(hash, col_name, x)
 
 			default:
 				fmt.Println("default %T", v)
 			}
 		}
+		arr = append(arr, rbVal)
 	}
+	objects[arr[0]] = true
+	//C.RbGcGuard(arr[0])
+	C.rb_hash_bulk_insert(C.long(len(arr)), &arr[0], hash)
 
 	//C.rb_obj_freeze(hash)
 	//dup := C.rb_hash_dup(hash)
@@ -253,16 +275,20 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	//zippedHash := C.rb_funcall(zippedArr, C.rb_intern(C.CString("to_h")))
 	//return zippedHash
 
-	return rbArr
-	//return hash
+	//return rbArr
+	return hash
 }
 
 func StoreInArrSize2(v1 C.VALUE, v2 C.VALUE) C.VALUE {
 	arr := C.rb_ary_new2(C.long(2))
 	C.rb_ary_store(arr, 0, v1)
 	C.rb_ary_store(arr, 1, v2)
-	C.RbGcGuard(arr)
-	objects[arr] = true
+	//C.RbGcGuard(arr)
+	//C.RbGcGuard(v1)
+	//C.RbGcGuard(v2)
+	//objects[v1] = true
+	//objects[v2] = true
+	//objects[arr] = true
 	return arr
 }
 

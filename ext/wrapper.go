@@ -72,6 +72,7 @@ VALUE createRbString(char* str) {
 }
 
 VALUE funcall0param(VALUE obj, ID id) {
+	RB_GC_GUARD(obj);
 	return rb_funcall(obj, id, 0);
 }
 
@@ -121,9 +122,10 @@ func RbString(str string) C.VALUE {
 	if len(str) == 0 {
 		return C.rb_utf8_str_new(nil, C.long(0))
 	}
-	cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
-	//return C.rb_utf8_str_new(C.CString(str), C.long(len(str)))
-	return C.rb_utf8_str_new(cstr, C.long(len(str)))
+	//objects[str] = true
+	//cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
+	return C.rb_utf8_str_new(C.CString(str), C.long(len(str)))
+	//return C.rb_utf8_str_new(cstr, C.long(len(str)))
 }
 
 func rb_define_class(name string, parent C.VALUE) C.VALUE {
