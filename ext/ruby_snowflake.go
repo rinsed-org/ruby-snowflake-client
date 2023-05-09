@@ -36,6 +36,7 @@ type SnowflakeResult struct {
 	cols       []C.VALUE
 	colRbArr   C.VALUE
 	parsedRows []C.VALUE
+	rbInstance C.VALUE
 }
 type SnowflakeClient struct {
 	db *sql.DB
@@ -105,13 +106,14 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 
 	var bla C.VALUE
 	result := C.rb_class_new_instance(0, &bla, rbSnowflakeResultClass)
-	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}, C.Qnil, []C.VALUE{}}
+	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}, C.Qnil, []C.VALUE{}, result}
 	rs.Initialize()
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
 		rbSnowflakeClientClass,
 		ptr,
 	)
+	C.RbGcGuard(rbStruct)
 	C.rb_ivar_set(result, RESULT_IDENTIFIER, rbStruct)
 	return result
 }
@@ -158,7 +160,6 @@ func Init_ruby_snowflake_client() {
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
-	//debug.SetGCPercent(-1)
 
 	fmt.Println("init ruby snowflake client")
 }
