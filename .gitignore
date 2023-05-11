@@ -7,3 +7,4 @@ ruby_snowflake_client_ext.*
 # ruby gems
 *.gem
 /.DS_Store
+.env
