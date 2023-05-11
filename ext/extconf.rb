@@ -15,7 +15,8 @@ File.open('Makefile', 'a') do |f|
   f.write <<eom.gsub(/^ {8}/, "\t")
 $(DLLIB): Makefile $(srcdir)/ruby_snowflake.go
         CGO_CFLAGS='$(INCFLAGS)' CGO_LDFLAGS='#{ldflags}' \
-  go build -p 4 -buildmode=c-shared -o $(DLLIB) .
+  go build -p 4 -buildmode=c-shared -o $(DLLIB) . && \
+  cp $(DLLIB) ../lib/
 eom
 end
 

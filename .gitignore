@@ -1,7 +1,6 @@
 /.project
-ruby_snowflake_client.h
-ruby_snowflake_client.so
-ruby_snowflake_client.bundle
+ruby_snowflake_client_ext.*
+/ext/Makefile
 /.rakeTasks
 .idea/*
 
