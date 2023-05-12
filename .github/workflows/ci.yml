@@ -25,6 +25,7 @@ jobs:
         run: bundle install
       - name: Build gem
         run: rake build
+      # Enable this section to allow debugging via SSH
       #- name: Setup upterm session
         #uses: lhotari/action-upterm@v1
         #with:
