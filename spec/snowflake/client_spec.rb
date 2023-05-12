@@ -55,6 +55,7 @@ RSpec.describe Snowflake::Client do
 
     context "with a simple query returning string" do
       let(:query) { "SELECT 1;" }
+
       it "should return a Snowflake::Result" do
         expect(result).to be_a(Snowflake::Result)
       end
