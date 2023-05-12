@@ -42,7 +42,6 @@ RSpec.describe Snowflake::Client do
       client.connect(
         ENV["SNOWFLAKE_ACCOUNT"],
         ENV["SNOWFLAKE_WAREHOUSE"],
-        #"ruby_snowflake_client_testing",
         "",
         "",
         ENV["SNOWFLAKE_USER"],
