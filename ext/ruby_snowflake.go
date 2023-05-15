@@ -152,7 +152,7 @@ func Init_ruby_snowflake_client_ext() {
 	C.rb_define_method(rbSnowflakeResultClass, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
 	C.rb_define_method(rbSnowflakeResultClass, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
 
-	C.rb_define_method(rbSnowflakeClientClass, C.CString("connect"), (*[0]byte)(C.Connect), 7)
+	C.rb_define_private_method(rbSnowflakeClientClass, C.CString("_connect"), (*[0]byte)(C.Connect), 7)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
