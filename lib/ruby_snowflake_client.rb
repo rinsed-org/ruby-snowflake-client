@@ -17,18 +17,13 @@ module Snowflake
   class Result
     attr_reader :query_duration
 
-    def get_rows_with_blk(&blk)
+    def get_all_rows(&blk)
       GC.disable
-      arr = get_rows(&blk)
-    ensure
-      GC.enable
-      GC.start
-    end
-
-    def get_all_rows
-      GC.disable
-      arr = get_rows.to_a
-      return arr
+      if blk
+        _get_rows(&blk)
+      else
+        _get_rows.to_a
+      end
     ensure
       GC.enable
       GC.start

@@ -150,7 +150,9 @@ func Init_ruby_snowflake_client_ext() {
 	rbSnowflakeResultClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Result"), C.rb_cObject)
 
 	C.rb_define_method(rbSnowflakeResultClass, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
-	C.rb_define_method(rbSnowflakeResultClass, C.CString("get_rows"), (*[0]byte)(C.GetRows), 0)
+	// `get_rows` is private as this can lead to SEGFAULT errors if not invoked
+	// with GC.disable due to undetermined issues caused by the Ruby GC.
+	C.rb_define_private_method(rbSnowflakeResultClass, C.CString("_get_rows"), (*[0]byte)(C.GetRows), 0)
 
 	C.rb_define_private_method(rbSnowflakeClientClass, C.CString("_connect"), (*[0]byte)(C.Connect), 7)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)

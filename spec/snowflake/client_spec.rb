@@ -68,8 +68,8 @@ RSpec.describe Snowflake::Client do
         )
       end
 
-      it "should respond to get_rows_with_blk" do
-        expect { |b| result.get_rows_with_blk(&b) }.to yield_with_args({"1" => "1"})
+      it "should respond to get_all_rows with a block" do
+        expect { |b| result.get_all_rows(&b) }.to yield_with_args({"1" => "1"})
       end
     end
 
