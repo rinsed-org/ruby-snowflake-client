@@ -6,17 +6,23 @@ RSpec.describe Snowflake::Client do
   describe "#connect" do
     context "when the account is empty" do
       it "will return an error" do
-        expect {
-          client.connect("","","","","","","")
-        }.to raise_error(ArgumentError, "Snowflake Config Creation Error: '260000: account is empty'")
+        expect { client.connect }.to raise_error(
+          ArgumentError, "Snowflake Config Creation Error: '260000: account is empty'"
+        )
       end
     end
 
     context "when all values are valid" do
       it "will not raise an error" do
-        expect(
-          client.connect("acc","warehouse","database","schema","user","pwd","role")
-        ).to eq(false)
+        expect(client.connect(
+          account: "account",
+          warehouse: "warehouse",
+          database: "database",
+          schema: "schema",
+          user: "user",
+          password: "password",
+          role: "role",
+        )).to eq(true)
       end
     end
 
@@ -24,15 +30,12 @@ RSpec.describe Snowflake::Client do
       it "will not raise an error" do
         expect(
           client.connect(
-            ENV["SNOWFLAKE_ACCOUNT"],
-            ENV["SNOWFLAKE_WAREHOUSE"],
-            "",
-            "",
-            ENV["SNOWFLAKE_USER"],
-            ENV["SNOWFLAKE_PASSWORD"],
-            ""
+            account: ENV["SNOWFLAKE_ACCOUNT"],
+            warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+            user: ENV["SNOWFLAKE_USER"],
+            password: ENV["SNOWFLAKE_PASSWORD"],
           )
-        ).to eq(false)
+        ).to eq(true)
       end
     end
   end
@@ -40,13 +43,10 @@ RSpec.describe Snowflake::Client do
   describe "#fetch" do
     before do
       client.connect(
-        ENV["SNOWFLAKE_ACCOUNT"],
-        ENV["SNOWFLAKE_WAREHOUSE"],
-        "",
-        "",
-        ENV["SNOWFLAKE_USER"],
-        ENV["SNOWFLAKE_PASSWORD"],
-        ""
+        account: ENV["SNOWFLAKE_ACCOUNT"],
+        warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+        user: ENV["SNOWFLAKE_USER"],
+        password: ENV["SNOWFLAKE_PASSWORD"],
       )
     end
 
@@ -68,8 +68,8 @@ RSpec.describe Snowflake::Client do
         )
       end
 
-      it "should respond to get_rows_with_blk" do
-        expect { |b| result.get_rows_with_blk(&b) }.to yield_with_args({"1" => "1"})
+      it "should respond to get_all_rows with a block" do
+        expect { |b| result.get_all_rows(&b) }.to yield_with_args({"1" => "1"})
       end
     end
 
