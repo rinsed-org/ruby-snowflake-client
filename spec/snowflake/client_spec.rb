@@ -64,12 +64,12 @@ RSpec.describe Snowflake::Client do
         rows = result.get_all_rows
         expect(rows.length).to eq(1)
         expect(rows).to eq(
-          [{"1" => "1"}]
+          [{"1" => 1}]
         )
       end
 
       it "should respond to get_all_rows with a block" do
-        expect { |b| result.get_all_rows(&b) }.to yield_with_args({"1" => "1"})
+        expect { |b| result.get_all_rows(&b) }.to yield_with_args({"1" => 1})
       end
     end
 
@@ -85,7 +85,7 @@ RSpec.describe Snowflake::Client do
       let(:expected_john) do
         {
           "coffes_per_week" => 3.41,
-          "id" => "1", # notice how int goes to string!
+          "id" => 1,
           "dob" => be_within(0.01).of(Time.new(1990, 10, 17,0,0,0, 0)),
           "created_at" => be_within(0.01).of(Time.new(2023,5,12,4,22,8,0)),
           "name" => "John Smith",
@@ -94,7 +94,7 @@ RSpec.describe Snowflake::Client do
       let(:expected_jane) do
         {
           "coffes_per_week" => 3.525,
-          "id" => "2", # notice how int goes to string!
+          "id" => 2,
           "dob" => be_within(0.01).of(Time.new(1990,1,9,0,0,0, 0)),
           "created_at" => be_within(0.01).of(Time.new(2023,5,12,4,22,8,0)),
           "name" => "Jane Smith",

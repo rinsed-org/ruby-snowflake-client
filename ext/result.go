@@ -94,10 +94,15 @@ func ObjNextRow(self C.VALUE) C.VALUE {
 func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	rows := res.rows
 	columns, _ := rows.Columns()
+	cts, _ := rows.ColumnTypes()
+	if LOG_LEVEL > 0 {
+		fmt.Printf("column types: %+v; %+v\n", cts[0], cts[0].ScanType())
+	}
+
 	rowLength := len(columns)
 
-	rawResult := make([]interface{}, rowLength)
-	rawData := make([]interface{}, rowLength)
+	rawResult := make([]any, rowLength)
+	rawData := make([]any, rowLength)
 	for i := range rawResult {
 		rawData[i] = &rawResult[i]
 	}
@@ -119,6 +124,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 			rbVal = C.Qnil
 		} else {
 			switch v := raw.(type) {
+			case int64:
+				rbVal = RbNumFromLong(C.long(v))
 			case float64:
 				rbVal = RbNumFromDouble(C.double(v))
 			case bool:

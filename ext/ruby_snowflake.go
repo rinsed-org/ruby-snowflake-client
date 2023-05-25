@@ -19,6 +19,7 @@ VALUE RbNumFromDouble(double v);
 import "C"
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -92,7 +93,7 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	if LOG_LEVEL > 0 {
 		fmt.Println("statement", RbGoString(statement))
 	}
-	rows, err := x.db.Query(RbGoString(statement))
+	rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.Background()), RbGoString(statement))
 	duration := time.Now().Sub(t1).Seconds()
 	if LOG_LEVEL > 0 {
 		fmt.Printf("Query duration: %s\n", time.Now().Sub(t1))
