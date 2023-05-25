@@ -20,6 +20,10 @@ VALUE RbNumFromDouble(double v) {
 	return DBL2NUM(v);
 }
 
+VALUE RbNumFromLong(long v) {
+	return LONG2NUM(v);
+}
+
 void goobj_retain(void *);
 void goobj_free(void *);
 void goobj_log(void *);
@@ -77,6 +81,10 @@ import (
 	"fmt"
 	"unsafe"
 )
+
+func RbNumFromLong(v C.long) C.VALUE {
+	return C.RbNumFromLong(v)
+}
 
 func RbNumFromDouble(v C.double) C.VALUE {
 	return C.RbNumFromDouble(v)
