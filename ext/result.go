@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"strings"
 	"time"
 
@@ -128,6 +129,9 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				rbVal = RbNumFromLong(C.long(v))
 			case float64:
 				rbVal = RbNumFromDouble(C.double(v))
+			case *big.Float:
+				f64, _ := v.Float64()
+				rbVal = RbNumFromDouble(C.double(f64))
 			case bool:
 				rbVal = C.Qfalse
 				if v {

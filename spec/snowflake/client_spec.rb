@@ -103,12 +103,28 @@ RSpec.describe Snowflake::Client do
 
       it "should return 2 rows with the right data types" do
         rows = result.get_all_rows
-        require "date"
         expect(rows.length).to eq(2)
         john = rows[0]
         jane = rows[1]
         expect(john).to match(expected_john)
         expect(jane).to match(expected_jane)
+      end
+    end
+
+    context "with NUMBER and HighPrecision" do
+      # We have setup a simple table in our Snowflake account with the below structure:
+      # CREATE TABLE ruby_snowflake_client_testing.public.test_big_datatypes
+      #   (ID NUMBER(38,0), BIGFLOAT NUMBER(8,2));
+      # And inserted some test data:
+      # INSERT INTO test_big_datatypes VALUES (1, 8.2549);
+      let(:query) { "SELECT * from ruby_snowflake_client_testing.public.test_big_datatypes;" }
+      it "should return 1 row with correct data types" do
+        rows = result.get_all_rows
+        expect(rows.length).to eq(1)
+        expect(rows[0]).to eq({
+          "id" => 1,
+          "bigfloat" => 8.25, #precision of only 2 decimals
+        })
       end
     end
 
