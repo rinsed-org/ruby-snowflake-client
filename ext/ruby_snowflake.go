@@ -160,7 +160,9 @@ func Init_ruby_snowflake_client_ext() {
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("fetch"), (*[0]byte)(C.ObjFetch), 1)
 
-	fmt.Println("init ruby snowflake client")
+	if LOG_LEVEL > 0 {
+		fmt.Println("init ruby snowflake client")
+	}
 }
 
 func main() {}
