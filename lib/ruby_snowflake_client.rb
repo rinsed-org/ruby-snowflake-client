@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "ruby_snowflake_client_ext" # build bundle of the go files
-
 module Snowflake
+  require "ruby_snowflake_client_ext" # build bundle of the go files
+
   class Client
     # Wrap the private _connect method, as sending kwargs to Go would require
     # wrapping the function in C as the current CGO has a limitation on
