@@ -55,7 +55,6 @@ func GetRows(self C.VALUE) C.VALUE {
 			}
 		}
 		x := res.ScanNextRow(false)
-		res.parsedRows = append(res.parsedRows, x)
 		C.rb_yield(x)
 		i = i + 1
 	}
@@ -66,8 +65,6 @@ func GetRows(self C.VALUE) C.VALUE {
 	//empty for GC
 	res.rows = nil
 	res.keptHash = C.Qnil
-	res.parsedRows = []C.VALUE{}
-	res.colRbArr = C.Qnil
 	res.cols = []C.VALUE{}
 
 	return self
@@ -88,22 +85,20 @@ func ObjNextRow(self C.VALUE) C.VALUE {
 	} else if rows.Err() == io.EOF {
 		res.rows = nil        // free up for gc
 		res.keptHash = C.Qnil // free up for gc
+		res.cols = []C.VALUE{}
 	}
 	return C.Qnil
 }
 
 func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	rows := res.rows
-	columns, _ := rows.Columns()
-	cts, _ := rows.ColumnTypes()
 	if LOG_LEVEL > 0 {
+		cts, _ := rows.ColumnTypes()
 		fmt.Printf("column types: %+v; %+v\n", cts[0], cts[0].ScanType())
 	}
 
-	rowLength := len(columns)
-
-	rawResult := make([]any, rowLength)
-	rawData := make([]any, rowLength)
+	rawResult := make([]any, len(res.cols))
+	rawData := make([]any, len(res.cols))
 	for i := range rawResult {
 		rawData[i] = &rawResult[i]
 	}
@@ -183,5 +178,4 @@ func (res *SnowflakeResult) Initialize() {
 
 	res.cols = cols
 	res.keptHash = SafeMakeHash(len(columns), cols)
-	res.colRbArr = rbArr
 }

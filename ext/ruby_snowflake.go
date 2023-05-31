@@ -30,12 +30,9 @@ import (
 )
 
 type SnowflakeResult struct {
-	rows       *sql.Rows
-	keptHash   C.VALUE
-	cols       []C.VALUE
-	colRbArr   C.VALUE
-	parsedRows []C.VALUE
-	rbInstance C.VALUE
+	rows     *sql.Rows
+	keptHash C.VALUE
+	cols     []C.VALUE
 }
 type SnowflakeClient struct {
 	db *sql.DB
@@ -103,7 +100,7 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	}
 
 	result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
-	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}, C.Qnil, []C.VALUE{}, result}
+	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}
 	rs.Initialize()
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
@@ -111,6 +108,7 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 		ptr,
 	)
 	C.RbGcGuard(rbStruct)
+	C.RbGcGuard(rbSnowflakeResultClass)
 	C.rb_ivar_set(result, RESULT_IDENTIFIER, rbStruct)
 	C.rb_ivar_set(result, RESULT_DURATION, RbNumFromDouble(C.double(duration)))
 	return result
