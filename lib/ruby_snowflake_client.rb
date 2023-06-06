@@ -11,11 +11,21 @@ module Snowflake
       _connect(account, warehouse, database, schema, user, password, role)
       true
     end
+
+    def fetch(sql)
+      result = _fetch(sql)
+      return result if result.valid?
+      raise(result.error)
+    end
   end
 
 
   class Result
-    attr_reader :query_duration
+    attr_reader :query_duration, :error
+
+    def valid?
+      error == nil
+    end
 
     def get_all_rows(&blk)
       GC.disable
