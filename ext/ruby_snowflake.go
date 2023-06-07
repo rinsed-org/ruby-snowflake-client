@@ -45,7 +45,7 @@ var rbSnowflakeModule C.VALUE
 var DB_IDENTIFIER = C.rb_intern(C.CString("db"))
 var RESULT_IDENTIFIER = C.rb_intern(C.CString("rows"))
 var RESULT_DURATION = C.rb_intern(C.CString("@query_duration"))
-var RESULT_ERROR = C.rb_intern(C.CString("@error"))
+var ERROR_IDENT = C.rb_intern(C.CString("@error"))
 
 var objects = make(map[interface{}]bool)
 
@@ -68,12 +68,14 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
-		rb_raise(C.rb_eArgError, "Snowflake Config Creation Error: '%s'", err)
+		errStr := fmt.Sprintf("Snowflake Config Creation Error: '%s'", err.Error())
+		C.rb_ivar_set(self, ERROR_IDENT, RbString(errStr))
 	}
 
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
-		rb_raise(C.rb_eArgError, "Connection Error: '%s'", err)
+		errStr := fmt.Sprintf("Connection Error: '%s'", err.Error())
+		C.rb_ivar_set(self, ERROR_IDENT, RbString(errStr))
 	}
 	rs := SnowflakeClient{db}
 	ptr := gopointer.Save(&rs)
@@ -95,7 +97,7 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	if err != nil {
 		result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 		errStr := fmt.Sprintf("Query error: '%s'", err.Error())
-		C.rb_ivar_set(result, RESULT_ERROR, RbString(errStr))
+		C.rb_ivar_set(result, ERROR_IDENT, RbString(errStr))
 		return result
 	}
 
@@ -106,7 +108,7 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	if err != nil {
 		result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 		errStr := fmt.Sprintf("Query error: '%s'", err.Error())
-		C.rb_ivar_set(result, RESULT_ERROR, RbString(errStr))
+		C.rb_ivar_set(result, ERROR_IDENT, RbString(errStr))
 		return result
 	}
 

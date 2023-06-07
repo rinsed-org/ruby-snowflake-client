@@ -7,7 +7,7 @@ RSpec.describe Snowflake::Client do
     context "when the account is empty" do
       it "will return an error" do
         expect { client.connect }.to raise_error(
-          ArgumentError, "Snowflake Config Creation Error: '260000: account is empty'"
+          "Snowflake Config Creation Error: '260000: account is empty'"
         )
       end
     end
