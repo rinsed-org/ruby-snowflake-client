@@ -21,5 +21,4 @@ Gem::Specification.new do |s|
 
   s.extensions = %w[ext/extconf.rb]
   s.require_paths = ["lib"]
-
 end
