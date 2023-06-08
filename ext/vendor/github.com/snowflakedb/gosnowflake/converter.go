@@ -901,7 +901,10 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 }
 
 func higherPrecisionEnabled(ctx context.Context) bool {
+	fmt.Println("checking higher precision: ", ctx)
+	fmt.Println(ctx.Value(multiStatementCount))
 	v := ctx.Value(enableHigherPrecision)
+	return true
 	if v == nil {
 		return false
 	}

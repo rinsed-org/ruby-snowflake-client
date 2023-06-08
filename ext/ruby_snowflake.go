@@ -35,7 +35,8 @@ type SnowflakeResult struct {
 	cols     []C.VALUE
 }
 type SnowflakeClient struct {
-	db *sql.DB
+	db       *sql.DB
+	database string
 }
 
 var rbSnowflakeClientClass C.VALUE
@@ -58,12 +59,12 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 	cfg := &sf.Config{
 		Account:   RbGoString(account),
 		Warehouse: RbGoString(warehouse),
-		Database:  RbGoString(database),
-		Schema:    RbGoString(schema),
-		User:      RbGoString(user),
-		Password:  RbGoString(password),
-		Role:      RbGoString(role),
-		Port:      int(443),
+		//Database:  RbGoString(database),
+		Schema:   RbGoString(schema),
+		User:     RbGoString(user),
+		Password: RbGoString(password),
+		Role:     RbGoString(role),
+		Port:     int(443),
 	}
 
 	dsn, err := sf.DSN(cfg)
@@ -77,7 +78,7 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 		errStr := fmt.Sprintf("Connection Error: '%s'", err.Error())
 		C.rb_ivar_set(self, ERROR_IDENT, RbString(errStr))
 	}
-	rs := SnowflakeClient{db}
+	rs := SnowflakeClient{db, RbGoString(database)}
 	ptr := gopointer.Save(&rs)
 	rbStruct := C.NewGoStruct(
 		rbSnowflakeClientClass,
@@ -93,7 +94,12 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	if LOG_LEVEL > 0 {
 		fmt.Println("statement", RbGoString(statement))
 	}
-	rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.Background()), RbGoString(statement))
+	sf.GetLogger().SetLogLevel("debug")
+	//blank_context := sf.WithHigherPrecision(context.Background())
+	multiStatCtx, _ := sf.WithMultiStatement(context.Background(), 2)
+	multiStatement := fmt.Sprintf("USE DATABASE %s; %s", x.database, RbGoString(statement))
+	fmt.Printf("Will run: %s\n", multiStatement)
+	rows, err := x.db.QueryContext(sf.WithHigherPrecision(multiStatCtx), multiStatement)
 	if err != nil {
 		result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 		errStr := fmt.Sprintf("Query error: '%s'", err.Error())
@@ -111,6 +117,8 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 		C.rb_ivar_set(result, ERROR_IDENT, RbString(errStr))
 		return result
 	}
+	// Skip the first result set as that is the `USE DATABASE` call.
+	rows.NextResultSet()
 
 	result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}

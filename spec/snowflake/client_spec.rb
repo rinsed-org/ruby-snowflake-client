@@ -47,6 +47,7 @@ RSpec.describe Snowflake::Client do
         warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
         user: ENV["SNOWFLAKE_USER"],
         password: ENV["SNOWFLAKE_PASSWORD"],
+        database: "ruby_snowflake_client_testing",
       )
     end
 
@@ -117,7 +118,7 @@ RSpec.describe Snowflake::Client do
       #   (ID NUMBER(38,0), BIGFLOAT NUMBER(8,2));
       # And inserted some test data:
       # INSERT INTO test_big_datatypes VALUES (1, 8.2549);
-      let(:query) { "SELECT * from ruby_snowflake_client_testing.public.test_big_datatypes;" }
+      let(:query) { "SELECT * from public.test_big_datatypes;" }
       it "should return 1 row with correct data types" do
         rows = result.get_all_rows
         expect(rows.length).to eq(1)
