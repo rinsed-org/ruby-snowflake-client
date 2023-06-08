@@ -7,15 +7,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: GoogleCloudPlatform/release-please-action@v2
-        id: release
-        with:
-          release-type: ruby
-          package-name: ruby_snowflake_client
-          bump-minor-pre-major: true
-          version-file: "lib/release/ruby_snowflake_client/version.rb"
-      - uses: actions/checkout@v2
-        if: ${{ steps.release.outputs.release_created }}
       - name: Set up Ruby
         uses: ruby/setup-ruby@904f3fef85a9c80a3750cbe7d5159268fd5caa9f
         with:
@@ -26,7 +17,7 @@ jobs:
           go-version: '1.20'
       - name: Install dependencies
         run: bundle install
-      - name: publish gem
+      - name: Publish to RubyGems
         run: |
           mkdir -p $HOME/.gem
           touch $HOME/.gem/credentials
@@ -36,4 +27,3 @@ jobs:
           gem push *.gem
         env:
           GEM_HOST_API_KEY: "${{secrets.RUBYGEMS_AUTH_TOKEN}}"
-        if: ${{ steps.release.outputs.release_created }}
