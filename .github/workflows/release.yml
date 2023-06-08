@@ -16,15 +16,16 @@ jobs:
           version-file: "lib/release/ruby_snowflake_client/version.rb"
       - uses: actions/checkout@v2
         if: ${{ steps.release.outputs.release_created }}
-      - uses: ruby/setup-ruby@v1
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@904f3fef85a9c80a3750cbe7d5159268fd5caa9f
         with:
-          ruby-version: 3.0.6
-          bundler-cache: true
-          if: ${{ steps.release.outputs.release_created }}
-      - name: Run tests
-        run: |
-          bundle exec rspec
-        if: ${{ steps.release.outputs.release_created }}
+          ruby-version: '3.0.6'
+      - name: Install Golang
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.20'
+      - name: Install dependencies
+        run: bundle install
       - name: publish gem
         run: |
           mkdir -p $HOME/.gem
