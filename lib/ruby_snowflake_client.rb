@@ -4,11 +4,15 @@ module Snowflake
   require "ruby_snowflake_client_ext" # build bundle of the go files
 
   class Client
+    attr_reader :error
     # Wrap the private _connect method, as sending kwargs to Go would require
     # wrapping the function in C as the current CGO has a limitation on
     # accepting variadic arguments for functions.
     def connect(account:"", warehouse:"", database:"", schema: "", user: "", password: "", role: "")
       _connect(account, warehouse, database, schema, user, password, role)
+      if error != nil
+        raise(error)
+      end
       true
     end
 
