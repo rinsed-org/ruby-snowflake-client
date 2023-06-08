@@ -21,6 +21,12 @@ import (
 	gopointer "github.com/mattn/go-pointer"
 )
 
+func wrapRbRaise(err error) {
+	fmt.Printf("[ruby-snowflake-client] Error encountered: %s\n", err.Error())
+	fmt.Printf("[ruby-snowflake-client] Will call `rb_raise`\n")
+	rb_raise(C.rb_eArgError, "%s", err.Error())
+}
+
 func getResultStruct(self C.VALUE) *SnowflakeResult {
 	ivar := C.rb_ivar_get(self, RESULT_IDENTIFIER)
 
@@ -28,7 +34,8 @@ func getResultStruct(self C.VALUE) *SnowflakeResult {
 	ptr := gopointer.Restore(str)
 	sr, ok := ptr.(*SnowflakeResult)
 	if !ok || sr.rows == nil {
-		rb_raise(C.rb_eArgError, "%s", errors.New("Empty result; please run a query via `client.fetch(\"SQL\")`"))
+		err := errors.New("Empty result; please run a query via `client.fetch(\"SQL\")`")
+		wrapRbRaise(err)
 		return nil
 	}
 
@@ -105,7 +112,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 
 	err := rows.Scan(rawData...)
 	if err != nil {
-		rb_raise(C.rb_eArgError, "Cannot scan row: '%s'", err)
+		err = fmt.Errorf("Cannot scan row: '%s'", err)
+		wrapRbRaise(err)
 	}
 
 	// trick from postgres; keep hash: pg_result.c:1088
@@ -139,7 +147,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				str := v
 				rbVal = RbString(str)
 			default:
-				rb_raise(C.rb_eArgError, "Cannot parse type '%s'", fmt.Errorf("%T", v))
+				err := fmt.Errorf("Cannot parse type : '%T'", v)
+				wrapRbRaise(err)
 			}
 		}
 		C.rb_hash_aset(hash, col_name, rbVal)

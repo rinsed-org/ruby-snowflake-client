@@ -136,7 +136,7 @@ func ObjFetch(self C.VALUE, statement C.VALUE) C.VALUE {
 	f := gopointer.Restore(req)
 	x, ok := f.(*SnowflakeClient)
 	if !ok {
-		rb_raise(C.rb_eArgError, "%s", errors.New("cannot convert x to pointer"))
+		wrapRbRaise((errors.New("cannot convert SnowflakeClient pointer in ObjFetch")))
 	}
 
 	return x.Fetch(statement)
