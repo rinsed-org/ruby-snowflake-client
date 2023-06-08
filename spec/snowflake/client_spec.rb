@@ -53,6 +53,19 @@ RSpec.describe Snowflake::Client do
     let(:query) { "" }
     let(:result) { client.fetch(query) }
 
+    context "when the query errors" do
+      let(:query) { "INVALID QUERY;" }
+      it "should raise an exception" do
+        expect { result }.to raise_error do |error|
+          expect(error).to be_a Snowflake::Error
+          expect(error.details).to include(
+            sql: query
+          )
+        end
+
+      end
+    end
+
     context "with a simple query returning string" do
       let(:query) { "SELECT 1;" }
 
