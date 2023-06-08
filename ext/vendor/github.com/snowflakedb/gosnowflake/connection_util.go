@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -239,6 +240,14 @@ func populateChunkDownloader(
 	ctx context.Context,
 	sc *snowflakeConn,
 	data execResponseData) chunkDownloader {
+	fmt.Println()
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("POPULATE CHUNK DOWNLOADER", resultFormat(data.QueryResultFormat))
+	debug.PrintStack()
+	fmt.Println()
+	fmt.Println()
+	fmt.Println()
 	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
 		// stream chunk downloading only works for row based data formats, i.e. json
 		fetcher := &httpStreamChunkFetcher{

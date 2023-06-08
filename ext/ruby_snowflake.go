@@ -94,18 +94,28 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	if LOG_LEVEL > 0 {
 		fmt.Println("statement", RbGoString(statement))
 	}
-	sf.GetLogger().SetLogLevel("debug")
+	//sf.GetLogger().SetLogLevel("debug")
 	//blank_context := sf.WithHigherPrecision(context.Background())
 	multiStatCtx, _ := sf.WithMultiStatement(context.Background(), 2)
-	multiStatement := fmt.Sprintf("USE DATABASE %s; %s", x.database, RbGoString(statement))
-	fmt.Printf("Will run: %s\n", multiStatement)
+	actualStatement := RbGoString(statement)
+	usedbStmt := fmt.Sprintf("USE DATABASE %s;", x.database)
+	multiStatement := fmt.Sprintf("USE DATABASE %s; %s", x.database, actualStatement)
+	fmt.Printf("Will run: %s %+v\n", multiStatement, multiStatCtx)
+	fmt.Printf("Will run: %s\n", usedbStmt)
+	fmt.Printf("Will run: %s\n", actualStatement)
+	//tx, _ := x.db.Begin()
+	//tx.Exec(usedbStmt)
+	//rows, err := tx.QueryContext(sf.WithHigherPrecision(context.Background()), actualStatement)
+	//rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.Background()), actualStatement)
 	rows, err := x.db.QueryContext(sf.WithHigherPrecision(multiStatCtx), multiStatement)
+	//tx.Commit()
 	if err != nil {
 		result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 		errStr := fmt.Sprintf("Query error: '%s'", err.Error())
 		C.rb_ivar_set(result, ERROR_IDENT, RbString(errStr))
 		return result
 	}
+	fmt.Printf("rows %+v\n", rows)
 
 	duration := time.Now().Sub(t1).Seconds()
 	if LOG_LEVEL > 0 {
@@ -118,7 +128,8 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 		return result
 	}
 	// Skip the first result set as that is the `USE DATABASE` call.
-	rows.NextResultSet()
+	fmt.Println("next rows:", rows.NextResultSet())
+	//rows.NextResultSet()
 
 	result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 	rs := SnowflakeResult{rows, C.Qnil, []C.VALUE{}}

@@ -216,6 +216,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	fmt.Printf("GETTING QUERY RESULT RESP %+v\n", res)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
@@ -226,6 +227,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
 	}
+	fmt.Printf("GETTING QUERY RESULT RESP %+v \ntype:%+v\n", respd, respd.Data.QueryResultFormat)
 	return respd, nil
 }
 

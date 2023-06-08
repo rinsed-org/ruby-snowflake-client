@@ -108,6 +108,7 @@ func (sc *snowflakeConn) handleMultiQuery(
 			QueryID:  data.QueryID,
 		}).exceptionTelemetry(sc)
 	}
+	fmt.Println("IN HANDLE MULTI Q: ", data.ResultTypes)
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
 		if err := sc.rowsForRunningQuery(ctx, child.id, rows); err != nil {

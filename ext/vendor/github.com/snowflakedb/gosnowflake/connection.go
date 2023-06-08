@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -115,7 +116,6 @@ func (sc *snowflakeConn) exec(
 	if err != nil {
 		return nil, err
 	}
-
 	data, err := sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers,
 		jsonBody, sc.rest.RequestTimeout, requestID, sc.cfg)
 	if err != nil {
@@ -140,6 +140,8 @@ func (sc *snowflakeConn) exec(
 			return nil, err
 		}
 	}
+	fmt.Printf("data: %+v\n", data)
+	fmt.Printf("data: %+v\n", data.Data.QueryResultFormat)
 
 	logger.WithContext(ctx).Info("Exec/Query SUCCESS")
 	sc.cfg.Database = data.Data.FinalDatabaseName
@@ -308,6 +310,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	args []driver.NamedValue) (
 	driver.Rows, error) {
 	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
+	fmt.Printf("Query: %+v, %v\n\n", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}

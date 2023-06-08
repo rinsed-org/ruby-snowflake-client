@@ -101,6 +101,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
+	//fmt.Println("IN START chunks.... ", scd.getQueryResultFormat())
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
@@ -341,6 +342,7 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 }
 
 func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
+	fmt.Println("in dwonload chunk helper")
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
 		logger.Debug("chunk header is provided.")
@@ -401,6 +403,14 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		body:   source,
 	}
 	var respd []chunkRowType
+
+	fmt.Println()
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("Has Format: ", scd.getQueryResultFormat())
+	fmt.Println()
+	fmt.Println()
+
 	if scd.getQueryResultFormat() != arrowFormat {
 		var decRespd [][]*string
 		if !CustomJSONDecoderEnabled {
