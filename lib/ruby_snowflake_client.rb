@@ -2,6 +2,7 @@
 
 module Snowflake
   require "ruby_snowflake_client_ext" # build bundle of the go files
+  LOG_LEVEL = 0
 
   class Error < StandardError
     attr_reader :details
@@ -51,13 +52,24 @@ module Snowflake
     def get_all_rows(&blk)
       GC.disable
       if blk
-        _get_rows(&blk)
+        while r = next_row do
+          yield r
+        end
       else
-        _get_rows.to_a
+        get_rows_array
       end
     ensure
       GC.enable
-      GC.start
     end
+
+    private
+      def get_rows_array
+        arr = []
+        while r = next_row do
+          puts "at #{arr.length}" if arr.length % 15000 == 0 && LOG_LEVEL > 0
+          arr << r
+        end
+        arr
+      end
   end
 end

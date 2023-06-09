@@ -11,11 +11,8 @@ VALUE funcall0param(VALUE obj, ID id);
 import "C"
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"strings"
 	"time"
 
 	gopointer "github.com/mattn/go-pointer"
@@ -28,18 +25,44 @@ func wrapRbRaise(err error) {
 }
 
 func getResultStruct(self C.VALUE) *SnowflakeResult {
-	ivar := C.rb_ivar_get(self, RESULT_IDENTIFIER)
+	return resultMap[self]
+}
 
-	str := GetGoStruct(ivar)
-	ptr := gopointer.Restore(str)
-	sr, ok := ptr.(*SnowflakeResult)
-	if !ok || sr.rows == nil {
-		err := errors.New("Empty result; please run a query via `client.fetch(\"SQL\")`")
-		wrapRbRaise(err)
-		return nil
+//export GetRowsNoEnum
+func GetRowsNoEnum(self C.VALUE) C.VALUE {
+	res := getResultStruct(self)
+	rows := res.rows
+
+	i := 0
+	t1 := time.Now()
+	var arr []C.VALUE
+
+	for rows.Next() {
+		if i%5000 == 0 {
+			if LOG_LEVEL > 0 {
+				fmt.Println("scanning row: ", i)
+			}
+		}
+		x := res.ScanNextRow(false)
+		objects[x] = true
+		gopointer.Save(x)
+		if LOG_LEVEL > 1 {
+			// This is VERY noisy
+			fmt.Printf("alloced %v\n", &x)
+		}
+		arr = append(arr, x)
+		i = i + 1
+	}
+	if LOG_LEVEL > 0 {
+		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
 	}
 
-	return sr
+	rbArr := C.rb_ary_new2(C.long(len(arr)))
+	for idx, elem := range arr {
+		C.rb_ary_store(rbArr, C.long(idx), elem)
+	}
+
+	return rbArr
 }
 
 //export GetRows
@@ -69,11 +92,6 @@ func GetRows(self C.VALUE) C.VALUE {
 		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
 	}
 
-	//empty for GC
-	res.rows = nil
-	res.keptHash = C.Qnil
-	res.cols = []C.VALUE{}
-
 	return self
 }
 
@@ -89,10 +107,6 @@ func ObjNextRow(self C.VALUE) C.VALUE {
 	if rows.Next() {
 		r := res.ScanNextRow(false)
 		return r
-	} else if rows.Err() == io.EOF {
-		res.rows = nil        // free up for gc
-		res.keptHash = C.Qnil // free up for gc
-		res.cols = []C.VALUE{}
 	}
 	return C.Qnil
 }
@@ -104,8 +118,8 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 		fmt.Printf("column types: %+v; %+v\n", cts[0], cts[0].ScanType())
 	}
 
-	rawResult := make([]any, len(res.cols))
-	rawData := make([]any, len(res.cols))
+	rawResult := make([]any, len(res.columns))
+	rawData := make([]any, len(res.columns))
 	for i := range rawResult {
 		rawData[i] = &rawResult[i]
 	}
@@ -117,10 +131,15 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 	}
 
 	// trick from postgres; keep hash: pg_result.c:1088
-	hash := C.rb_hash_dup(res.keptHash)
+	//hash := C.rb_hash_dup(res.keptHash)
+	hash := C.rb_hash_new()
+	if LOG_LEVEL > 1 {
+		// This is very noisy
+		fmt.Println("alloc'ed new hash", &hash)
+	}
+
 	for idx, raw := range rawResult {
 		raw := raw
-		col_name := res.cols[idx]
 
 		var rbVal C.VALUE
 
@@ -151,40 +170,12 @@ func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {
 				wrapRbRaise(err)
 			}
 		}
-		C.rb_hash_aset(hash, col_name, rbVal)
+		colstr := C.rb_str_new2(C.CString(res.columns[idx]))
+		if LOG_LEVEL > 1 {
+			// This is very noisy
+			fmt.Printf("alloc string: %+v; rubyVal: %+v\n", &colstr, &rbVal)
+		}
+		C.rb_hash_aset(hash, colstr, rbVal)
 	}
 	return hash
-}
-
-func SafeMakeHash(lenght int, cols []C.VALUE) C.VALUE {
-	var hash C.VALUE
-	hash = C.rb_hash_new()
-
-	if LOG_LEVEL > 0 {
-		fmt.Println("starting make hash")
-	}
-	for _, col := range cols {
-		C.rb_hash_aset(hash, col, C.Qnil)
-	}
-	if LOG_LEVEL > 0 {
-		fmt.Println("end make hash", hash)
-	}
-	return hash
-}
-
-func (res *SnowflakeResult) Initialize() {
-	columns, _ := res.rows.Columns()
-	rbArr := C.rb_ary_new2(C.long(len(columns)))
-
-	cols := make([]C.VALUE, len(columns))
-	for idx, colName := range columns {
-		str := strings.ToLower(colName)
-		sym := C.rb_str_new2(C.CString(str))
-		sym = C.rb_str_freeze(sym)
-		cols[idx] = sym
-		C.rb_ary_store(rbArr, C.long(idx), sym)
-	}
-
-	res.cols = cols
-	res.keptHash = SafeMakeHash(len(columns), cols)
 }

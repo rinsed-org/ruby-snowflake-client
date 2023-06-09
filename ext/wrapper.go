@@ -24,7 +24,7 @@ VALUE RbNumFromLong(long v) {
 	return LONG2NUM(v);
 }
 
-void goobj_retain(void *);
+void goobj_retain(void *, char*);
 void goobj_free(void *);
 void goobj_log(void *);
 void goobj_mark(void *);
@@ -42,9 +42,9 @@ static const rb_data_type_t go_type = {
 };
 
 VALUE
-NewGoStruct(VALUE klass, void *p)
+NewGoStruct(VALUE klass, char* reason, void *p)
 {
-    goobj_retain(p);
+    goobj_retain(p, reason);
     return TypedData_Wrap_Struct(klass, &go_type, p);
 }
 
@@ -125,7 +125,8 @@ func RbString(str string) C.VALUE {
 	if len(str) == 0 {
 		return C.rb_utf8_str_new(nil, C.long(0))
 	}
-	cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
+	//cstr := (*C.char)(unsafe.Pointer(&(*(*[]byte)(unsafe.Pointer(&str)))[0]))
+	cstr := C.CString(str)
 	return C.rb_utf8_str_new(cstr, C.long(len(str)))
 }
 
