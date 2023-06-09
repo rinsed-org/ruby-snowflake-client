@@ -29,9 +29,9 @@ func goobj_log(obj unsafe.Pointer) {
 }
 
 //export goobj_retain
-func goobj_retain(obj unsafe.Pointer) {
+func goobj_retain(obj unsafe.Pointer, x *C.char) {
 	if LOG_LEVEL > 0 {
-		fmt.Printf("retain obj %v - currently keeping %d\n", obj, len(objects))
+		fmt.Printf("retain obj [%v] %v - currently keeping %d\n", C.GoString(x), obj, len(objects))
 	}
 	objects[obj] = true
 	marked[obj] = 0

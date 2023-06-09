@@ -160,15 +160,53 @@ RSpec.describe Snowflake::Client do
         end
       end
 
-      context "fetching 150k rows" do
+      context "fetching 150k rows x 100 times" do
         let(:limit) { 150_000 }
         it "should work" do
-          rows = result.get_all_rows
-          expect(rows.length).to eq 150000
-          expect((-50000...50000)).to include(rows[0]["id"].to_i)
+          100.times do |idx|
+            puts "on #{idx}"
+            client = described_class.new
+            client.connect(
+              account: ENV["SNOWFLAKE_ACCOUNT"],
+              warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+              user: ENV["SNOWFLAKE_USER"],
+              password: ENV["SNOWFLAKE_PASSWORD"],
+            )
+            result = client.fetch(query)
+            rows = result.get_all_rows
+            puts "Done with get all rows"
+            GC.start
+            expect(rows.length).to eq 150000
+            expect((-50000...50000)).to include(rows[0]["id"].to_i)
+          end
+        end
+      end
+
+      context "fetching 150k rows x 10 times - with threads" do
+        let(:limit) { 150_000 }
+        it "should work" do
+          t = []
+          10.times do |idx|
+            t << Thread.new do
+              puts "on #{idx}"
+              client = described_class.new
+              client.connect(
+                account: ENV["SNOWFLAKE_ACCOUNT"],
+                warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+                user: ENV["SNOWFLAKE_USER"],
+                password: ENV["SNOWFLAKE_PASSWORD"],
+              )
+              result = client.fetch(query)
+              rows = result.get_all_rows
+              puts "Done with get all rows"
+              expect(rows.length).to eq 150000
+              expect((-50000...50000)).to include(rows[0]["id"].to_i)
+            end
+          end
+
+          t.map(&:join)
         end
       end
     end
-
   end
 end
