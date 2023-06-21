@@ -58,7 +58,7 @@ RSpec.describe Snowflake::Client do
       it "should raise an exception" do
         expect { result }.to raise_error do |error|
           expect(error).to be_a Snowflake::Error
-          expect(error.details).to include(
+          expect(error.sentry_context).to include(
             sql: query
           )
         end
