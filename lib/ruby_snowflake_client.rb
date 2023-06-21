@@ -5,10 +5,12 @@ module Snowflake
   LOG_LEVEL = 0
 
   class Error < StandardError
-    attr_reader :details
+    # This will get pulled through to Sentry, see:
+    # https://github.com/getsentry/sentry-ruby/blob/11ecd254c0d2cae2b327f0348074e849095aa32d/sentry-ruby/lib/sentry/error_event.rb#L31-L33
+    attr_reader :sentry_context
 
     def initialize(details)
-      @details = details
+      @sentry_context = details
     end
   end
 
