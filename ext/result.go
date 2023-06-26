@@ -9,12 +9,18 @@ VALUE ReturnEnumerator(VALUE cls);
 import "C"
 
 import (
+	"database/sql"
 	"fmt"
 	"math/big"
 	"time"
 
 	gopointer "github.com/mattn/go-pointer"
 )
+
+type SnowflakeResult struct {
+	rows    *sql.Rows
+	columns []string
+}
 
 func wrapRbRaise(err error) {
 	fmt.Printf("[ruby-snowflake-client] Error encountered: %s\n", err.Error())
