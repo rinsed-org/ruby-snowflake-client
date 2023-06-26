@@ -10,9 +10,6 @@ VALUE Inspect(VALUE);
 VALUE GetRows(VALUE);
 VALUE GetRowsNoEnum(VALUE);
 
-VALUE NewGoStruct(VALUE klass, char* reason, void *p);
-VALUE GoRetEnum(VALUE,int,VALUE);
-void* GetGoStruct(VALUE obj);
 void RbGcGuard(VALUE ptr);
 VALUE ReturnEnumerator(VALUE cls);
 VALUE RbNumFromDouble(double v);

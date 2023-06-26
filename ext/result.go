@@ -5,8 +5,6 @@ package main
 #include "ruby/ruby.h"
 
 VALUE ReturnEnumerator(VALUE cls);
-VALUE createRbString(char* str);
-VALUE funcall0param(VALUE obj, ID id);
 */
 import "C"
 

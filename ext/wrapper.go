@@ -24,57 +24,14 @@ VALUE RbNumFromLong(long v) {
 	return LONG2NUM(v);
 }
 
-void goobj_retain(void *, char*);
-void goobj_free(void *);
-void goobj_log(void *);
-void goobj_mark(void *);
-void goobj_compact(void *);
-
-static const rb_data_type_t go_type = {
-    "GoStruct",
-    {
-			goobj_mark,
-			goobj_free,
-			NULL,
-			(goobj_compact),
-		},
-    0, 0, RUBY_TYPED_FREE_IMMEDIATELY
-};
-
-VALUE
-NewGoStruct(VALUE klass, char* reason, void *p)
-{
-    goobj_retain(p, reason);
-    return TypedData_Wrap_Struct(klass, &go_type, p);
-}
-
 VALUE ReturnEnumerator(VALUE cls) {
 	RETURN_ENUMERATOR(cls, 0, NULL);
 	return Qnil;
 }
 
-void *
-GetGoStruct(VALUE obj)
-{
-    void *val;
-    return TypedData_Get_Struct(obj, void *, &go_type, val);
-}
-
 void RbGcGuard(VALUE ptr) {
 	RB_GC_GUARD(ptr);
 }
-
-VALUE createRbString(char* str) {
-	volatile VALUE rbStr;
-	rbStr = rb_tainted_str_new_cstr(str);
-	return rbStr;
-}
-
-VALUE funcall0param(VALUE obj, ID id) {
-	RB_GC_GUARD(obj);
-	return rb_funcall(obj, id, 0);
-}
-
 */
 import "C"
 import (
@@ -88,10 +45,6 @@ func RbNumFromLong(v C.long) C.VALUE {
 
 func RbNumFromDouble(v C.double) C.VALUE {
 	return C.RbNumFromDouble(v)
-}
-
-func GetGoStruct(obj C.VALUE) unsafe.Pointer {
-	return C.GetGoStruct(obj)
 }
 
 func returnEnum(cls C.VALUE) C.VALUE {
