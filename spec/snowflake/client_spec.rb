@@ -164,7 +164,6 @@ RSpec.describe Snowflake::Client do
         let(:limit) { 150_000 }
         it "should work" do
           100.times do |idx|
-            puts "on #{idx}"
             client = described_class.new
             client.connect(
               account: ENV["SNOWFLAKE_ACCOUNT"],
@@ -174,7 +173,6 @@ RSpec.describe Snowflake::Client do
             )
             result = client.fetch(query)
             rows = result.get_all_rows
-            puts "Done with get all rows"
             GC.start
             expect(rows.length).to eq 150000
             expect((-50000...50000)).to include(rows[0]["id"].to_i)
@@ -188,7 +186,6 @@ RSpec.describe Snowflake::Client do
           t = []
           10.times do |idx|
             t << Thread.new do
-              puts "on #{idx}"
               client = described_class.new
               client.connect(
                 account: ENV["SNOWFLAKE_ACCOUNT"],
@@ -198,7 +195,6 @@ RSpec.describe Snowflake::Client do
               )
               result = client.fetch(query)
               rows = result.get_all_rows
-              puts "Done with get all rows"
               expect(rows.length).to eq 150000
               expect((-50000...50000)).to include(rows[0]["id"].to_i)
             end
