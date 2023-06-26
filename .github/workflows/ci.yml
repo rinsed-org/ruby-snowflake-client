@@ -32,7 +32,7 @@ jobs:
           ### limits ssh access and adds the ssh public key for the user which triggered the workflow
           #limit-access-to-actor: true
       - name: Install gem
-        run: cd pkg && gem install --local *.gem --verbose
+        run: cd pkg && gem install --local *.gem
       - name: Run tests
         run: ruby -rruby_snowflake_client -S rspec spec/**/*_spec.rb -cfdoc
         env: # Or as an environment variable
