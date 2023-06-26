@@ -5,18 +5,22 @@ package main
 #include "ruby/ruby.h"
 
 VALUE ReturnEnumerator(VALUE cls);
-VALUE createRbString(char* str);
-VALUE funcall0param(VALUE obj, ID id);
 */
 import "C"
 
 import (
+	"database/sql"
 	"fmt"
 	"math/big"
 	"time"
 
 	gopointer "github.com/mattn/go-pointer"
 )
+
+type SnowflakeResult struct {
+	rows    *sql.Rows
+	columns []string
+}
 
 func wrapRbRaise(err error) {
 	fmt.Printf("[ruby-snowflake-client] Error encountered: %s\n", err.Error())
