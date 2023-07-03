@@ -41,6 +41,18 @@ module Snowflake
       return result if result.valid?
       raise Error.new(@connection_details.merge(sql: sql)), result.error
     end
+
+    def fetch_with_database(sql, db="")
+      if db.empty?
+        raise(
+          Error.new(@connection_details.merge(sql: sql)),
+          "Have to provided database name when using `fetch_with_database`",
+        )
+      end
+      result = _fetch_with_db(sql, db)
+      return result if result.valid?
+      raise Error.new(@connection_details.merge(sql: sql)), result.error
+    end
   end
 
 
