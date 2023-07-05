@@ -20,6 +20,7 @@ import (
 type SnowflakeResult struct {
 	rows    *sql.Rows
 	columns []string
+	conn    *sql.Conn
 }
 
 func wrapRbRaise(err error) {
@@ -66,6 +67,7 @@ func GetRowsNoEnum(self C.VALUE) C.VALUE {
 		C.rb_ary_store(rbArr, C.long(idx), elem)
 	}
 
+	res.Close()
 	return rbArr
 }
 
@@ -95,6 +97,7 @@ func GetRows(self C.VALUE) C.VALUE {
 	if LOG_LEVEL > 0 {
 		fmt.Printf("done with rows.next: %s\n", time.Now().Sub(t1))
 	}
+	res.Close()
 
 	return self
 }
@@ -112,7 +115,16 @@ func ObjNextRow(self C.VALUE) C.VALUE {
 		r := res.ScanNextRow(false)
 		return r
 	}
+	res.Close()
 	return C.Qnil
+}
+
+func (res SnowflakeResult) Close() {
+	if LOG_LEVEL > 0 {
+		fmt.Println("called res.close")
+	}
+	res.rows.Close()
+	res.conn.Close()
 }
 
 func (res SnowflakeResult) ScanNextRow(debug bool) C.VALUE {

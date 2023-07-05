@@ -5,6 +5,7 @@ package main
 #include "ruby/ruby.h"
 void Connect(VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE);
 VALUE ObjFetch(VALUE,VALUE);
+VALUE ObjFetchWithDB(VALUE,VALUE,VALUE);
 VALUE ObjNextRow(VALUE);
 VALUE Inspect(VALUE);
 VALUE GetRows(VALUE);
@@ -66,6 +67,7 @@ func Init_ruby_snowflake_client_ext() {
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("_fetch"), (*[0]byte)(C.ObjFetch), 1)
+	C.rb_define_method(rbSnowflakeClientClass, C.CString("_fetch_with_db"), (*[0]byte)(C.ObjFetchWithDB), 2)
 
 	if LOG_LEVEL > 0 {
 		fmt.Println("init ruby snowflake client")
