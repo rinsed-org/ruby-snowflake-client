@@ -62,7 +62,50 @@ RSpec.describe Snowflake::Client do
             sql: query
           )
         end
+      end
 
+      context "for unauthorized database" do
+        before do
+          client.connect(
+            account: ENV["SNOWFLAKE_ACCOUNT"],
+            warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+            user: ENV["SNOWFLAKE_USER"],
+            password: ENV["SNOWFLAKE_PASSWORD"],
+          )
+        end
+        let(:query) { "SELECT * FROM TEST_DATABASE.RINSED_WEB_APP.EMAILS LIMIT 1;" }
+        it "should raise an exception" do
+          expect { result }.to raise_error do |error|
+            expect(error).to be_a Snowflake::Error
+            expect(error.message).to include "TEST_DATABASE"
+            expect(error.sentry_context).to include(
+              sql: query
+            )
+          end
+        end
+
+        it "should raise the correct exception for threaded work" do
+          require "parallel"
+
+          Parallel.map((1..3).collect { _1 }, in_threads: 2) do |idx|
+            c = described_class.new
+            c.connect(
+              account: ENV["SNOWFLAKE_ACCOUNT"],
+              warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+              user: ENV["SNOWFLAKE_USER"],
+              password: ENV["SNOWFLAKE_PASSWORD"],
+            )
+            query = "SELECT * FROM TEST_DATABASE#{idx}.RINSED_WEB_APP.EMAILS LIMIT 1;"
+
+            expect { c.fetch(query) }.to raise_error do |error|
+              expect(error).to be_a Snowflake::Error
+              expect(error.sentry_context).to include(
+                sql: query
+              )
+              expect(error.message).to include "TEST_DATABASE#{idx}"
+            end
+          end
+        end
       end
     end
 
