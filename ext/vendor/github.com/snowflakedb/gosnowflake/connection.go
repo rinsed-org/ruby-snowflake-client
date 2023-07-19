@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -422,18 +424,22 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		cfg:             &config,
 	}
 	var st http.RoundTripper = SnowflakeTransport
+	fmt.Println("yo transporting")
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.InsecureMode {
 			// no revocation check with OCSP. Think twice when you want to enable this option.
+			fmt.Println("$$$$$yo transporting insecure trsp")
 			st = snowflakeInsecureTransport
 		} else {
 			// set OCSP fail open mode
+			fmt.Println("$$$$$yo transporting OCSP")
 			ocspResponseCacheLock.Lock()
 			atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
 			ocspResponseCacheLock.Unlock()
 		}
 	} else {
 		// use the custom transport
+		fmt.Println("$$$$$yo transporting CUSTOM")
 		st = sc.cfg.Transporter
 	}
 	if strings.HasSuffix(sc.cfg.Host, privateLinkSuffix) {
@@ -453,15 +459,17 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	// authenticate
+	c := &http.Client{
+		// request timeout including reading response body
+		Timeout:   1 * time.Second,
+		Transport: st,
+	}
+	//c.Do
 	sc.rest = &snowflakeRestful{
-		Host:     sc.cfg.Host,
-		Port:     sc.cfg.Port,
-		Protocol: sc.cfg.Protocol,
-		Client: &http.Client{
-			// request timeout including reading response body
-			Timeout:   sc.cfg.ClientTimeout,
-			Transport: st,
-		},
+		Host:                sc.cfg.Host,
+		Port:                sc.cfg.Port,
+		Protocol:            sc.cfg.Protocol,
+		Client:              c,
 		TokenAccessor:       tokenAccessor,
 		LoginTimeout:        sc.cfg.LoginTimeout,
 		RequestTimeout:      sc.cfg.RequestTimeout,

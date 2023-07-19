@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -34,6 +35,7 @@ func (d SnowflakeDriver) OpenWithConfig(
 	if config.Tracing != "" {
 		logger.SetLogLevel(config.Tracing)
 	}
+	fmt.Println("in #open_with_config")
 	logger.Info("OpenWithConfig")
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
@@ -43,9 +45,12 @@ func (d SnowflakeDriver) OpenWithConfig(
 	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
 	}
-	sc.connectionTelemetry(&config)
+	fmt.Println("in #open_with_config past auth")
+	//sc.connectionTelemetry(&config)
 
+	fmt.Println("in #open_with_config later")
 	sc.startHeartBeat()
+	fmt.Println("in #after heartbeat")
 	sc.internal = &httpClient{sr: sc.rest}
 	return sc, nil
 }

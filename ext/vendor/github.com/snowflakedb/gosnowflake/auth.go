@@ -377,6 +377,7 @@ func authenticate(
 			SessionInfo: sessionInfo,
 		}, nil
 	}
+	fmt.Println("yo")
 
 	authRequest := authRequest{
 		Data: requestMain,
@@ -403,7 +404,9 @@ func authenticate(
 	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
 
-	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
+	fmt.Println("yo2 auth")
+	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, 1*time.Second)
+	fmt.Println("yo3 auth")
 	if err != nil {
 		return nil, err
 	}
@@ -526,11 +529,13 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			return err
 		}
 	}
+	fmt.Println("authentification")
 	authData, err = authenticate(
 		sc.ctx,
 		sc,
 		samlResponse,
 		proofKey)
+	fmt.Println("authentification")
 	if err != nil {
 		sc.cleanup()
 		return err

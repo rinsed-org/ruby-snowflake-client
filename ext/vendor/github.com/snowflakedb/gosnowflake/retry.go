@@ -214,6 +214,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 	var rIDReplacer requestGUIDReplacer
 	var rUpdater retryCounterUpdater
+	fmt.Println("yo4")
 
 	for {
 		logger.Debugf("retry count: %v", retryCounter)
@@ -228,7 +229,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		for k, v := range r.headers {
 			req.Header.Set(k, v)
 		}
+		logger.Debugf("yo1")
 		res, err = r.client.Do(req)
+		logger.Debugf("yo2")
 		if err != nil {
 			// check if it can retry.
 			doExit, err := r.isRetryableError(err)
