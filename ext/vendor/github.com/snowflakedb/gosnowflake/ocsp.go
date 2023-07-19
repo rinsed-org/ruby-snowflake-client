@@ -957,8 +957,8 @@ var SnowflakeTransport = &http.Transport{
 	IdleConnTimeout: 30 * time.Minute,
 	Proxy:           http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
+		Timeout:   1 * time.Second,
+		KeepAlive: 1 * time.Second,
 	}).DialContext,
 }
 
