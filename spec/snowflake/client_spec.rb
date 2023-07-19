@@ -361,16 +361,15 @@ RSpec.describe Snowflake::Client do
             user: ENV["SNOWFLAKE_USER"],
             password: ENV["SNOWFLAKE_PASSWORD"],
           )
-          10.times do |idx|
-            t << Thread.new do
-              result = client.fetch_with_database(query, database_name)
-              rows = result.get_all_rows
-              expect(rows.length).to eq 150000
-              expect((-50000...50000)).to include(rows[0]["id"].to_i)
-            end
+          require "parallel"
+          # yo logs:
+          # https://github.com/rinsed-org/ruby-snowflake-client/blob/feat/multi-session-same-conn/ase/sql/sql.go#L1394
+          Parallel.map((1..10).collect{_1}, in_processes: 1) do
+            result = client.fetch_with_database(query, database_name)
+            rows = result.get_all_rows
+            expect(rows.length).to eq 150000
+            expect((-50000...50000)).to include(rows[0]["id"].to_i)
           end
-
-          t.map(&:join)
         end
       end
     end

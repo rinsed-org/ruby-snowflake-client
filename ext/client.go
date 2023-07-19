@@ -149,6 +149,7 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 	}
 
 	dsn, err := sf.DSN(cfg)
+	sf.GetLogger().SetLogLevel("trace")
 	if err != nil {
 		errStr := fmt.Sprintf("Snowflake Config Creation Error: '%s'", err.Error())
 		C.rb_ivar_set(self, ERROR_IDENT, RbString(errStr))
