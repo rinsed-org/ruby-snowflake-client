@@ -1,10 +1,7 @@
 # frozen_string_literal: true
 
 module Snowflake
-  puts "Entered Snowflake module"
   require "ruby_snowflake_client_ext" # build bundle of the go files
-  puts "Loaded Snowflake Go bundle"
-
   LOG_LEVEL = 0
 
   class Error < StandardError
