@@ -10,3 +10,7 @@ gem "rake"
 gem "rspec"
 gem "pry"
 gem "dotenv"
+
+group :development do
+  gem "parallel"
+end
