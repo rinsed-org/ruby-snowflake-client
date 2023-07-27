@@ -43,28 +43,45 @@ func Inspect(self C.VALUE) C.VALUE {
 
 //export Init_ruby_snowflake_client_ext
 func Init_ruby_snowflake_client_ext() {
+	fmt.Println("[ruby-snowflake] Initializing module")
 	rbSnowflakeModule = C.rb_define_module(C.CString("Snowflake"))
+	fmt.Println("[ruby-snowflake] Initializing client class")
 	rbSnowflakeClientClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Client"), C.rb_cObject)
+	fmt.Println("[ruby-snowflake] Initializing result class")
 	rbSnowflakeResultClass = C.rb_define_class_under(rbSnowflakeModule, C.CString("Result"), C.rb_cObject)
 
+	fmt.Println("[ruby-snowflake] Setting up objects 1")
 	objects[rbSnowflakeResultClass] = true
+	fmt.Println("[ruby-snowflake] Setting up objects 2")
 	objects[rbSnowflakeClientClass] = true
+	fmt.Println("[ruby-snowflake] Setting up objects 3")
 	objects[rbSnowflakeModule] = true
+	fmt.Println("[ruby-snowflake] Setting up objects 4")
 	objects[RESULT_DURATION] = true
+	fmt.Println("[ruby-snowflake] Setting up objects 5")
 	objects[ERROR_IDENT] = true
+	fmt.Println("[ruby-snowflake] GCGUARD call 1")
 	C.RbGcGuard(RESULT_DURATION)
 	//C.RbGcGuard(RESULT_IDENTIFIER)
+	fmt.Println("[ruby-snowflake] GCGUARD call 2")
 	C.RbGcGuard(ERROR_IDENT)
 
+	fmt.Println("[ruby-snowflake] Define method 1")
 	C.rb_define_method(rbSnowflakeResultClass, C.CString("next_row"), (*[0]byte)(C.ObjNextRow), 0)
 	// `get_rows` is private as this can lead to SEGFAULT errors if not invoked
 	// with GC.disable due to undetermined issues caused by the Ruby GC.
+	fmt.Println("[ruby-snowflake] Define method 2")
 	C.rb_define_private_method(rbSnowflakeResultClass, C.CString("_get_rows"), (*[0]byte)(C.GetRows), 0)
+	fmt.Println("[ruby-snowflake] Define method 3")
 	C.rb_define_method(rbSnowflakeResultClass, C.CString("get_rows_no_enum"), (*[0]byte)(C.GetRowsNoEnum), 0)
 
+	fmt.Println("[ruby-snowflake] Define method 4")
 	C.rb_define_private_method(rbSnowflakeClientClass, C.CString("_connect"), (*[0]byte)(C.Connect), 7)
+	fmt.Println("[ruby-snowflake] Define method 5")
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("inspect"), (*[0]byte)(C.Inspect), 0)
+	fmt.Println("[ruby-snowflake] Define method 6")
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("to_s"), (*[0]byte)(C.Inspect), 0)
+	fmt.Println("[ruby-snowflake] Define method 7")
 	C.rb_define_method(rbSnowflakeClientClass, C.CString("_fetch"), (*[0]byte)(C.ObjFetch), 1)
 
 	if LOG_LEVEL > 0 {
