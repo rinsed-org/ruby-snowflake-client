@@ -1,3 +1,3 @@
 module RubySnowflakeClient
-  VERSION = '1.3.3-debug'
+  VERSION = '1.3.4-debug'
 end
