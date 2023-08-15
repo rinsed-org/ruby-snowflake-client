@@ -24,11 +24,10 @@ var rbSnowflakeClientClass C.VALUE
 var rbSnowflakeResultClass C.VALUE
 var rbSnowflakeModule C.VALUE
 
-var RESULT_IDENTIFIER = C.rb_intern(C.CString("rows"))
-var RESULT_DURATION = C.rb_intern(C.CString("@query_duration"))
-var ERROR_IDENT = C.rb_intern(C.CString("@error"))
+var RESULT_DURATION C.VALUE
+var ERROR_IDENT C.VALUE
 
-var objects = make(map[interface{}]bool)
+var objects = make(map[any]bool)
 var resultMap = make(map[C.VALUE]*SnowflakeResult)
 var clientRef = make(map[C.VALUE]*SnowflakeClient)
 
@@ -43,6 +42,9 @@ func Inspect(self C.VALUE) C.VALUE {
 
 //export Init_ruby_snowflake_client_ext
 func Init_ruby_snowflake_client_ext() {
+	fmt.Println("Initializing consts")
+	RESULT_DURATION = C.rb_intern(C.CString("@query_duration"))
+	ERROR_IDENT = C.rb_intern(C.CString("@error"))
 	fmt.Println("[ruby-snowflake] Initializing module")
 	rbSnowflakeModule = C.rb_define_module(C.CString("Snowflake"))
 	fmt.Println("[ruby-snowflake] Initializing client class")
