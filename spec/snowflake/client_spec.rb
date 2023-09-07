@@ -246,6 +246,30 @@ RSpec.describe Snowflake::Client do
           t.map(&:join)
         end
       end
+
+      context "fetching 150k rows x 10 times - with threads & shared client" do
+        let(:limit) { 150_000 }
+        it "should work" do
+          t = []
+          client = described_class.new
+          client.connect(
+            account: ENV["SNOWFLAKE_ACCOUNT"],
+            warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+            user: ENV["SNOWFLAKE_USER"],
+            password: ENV["SNOWFLAKE_PASSWORD"],
+          )
+          10.times do |idx|
+            t << Thread.new do
+              result = client.fetch(query)
+              rows = result.get_all_rows
+              expect(rows.length).to eq 150000
+              expect((-50000...50000)).to include(rows[0]["id"].to_i)
+            end
+          end
+
+          t.map(&:join)
+        end
+      end
     end
   end
 end
