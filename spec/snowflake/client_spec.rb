@@ -247,6 +247,31 @@ RSpec.describe Snowflake::Client do
         end
       end
 
+      context "fetching 150k rows x 10 times - with threads" do
+        it "should work" do
+          t = []
+          10.times do |idx|
+            t << Thread.new do
+              local_idx = idx
+              client = described_class.new
+              client.connect(
+                account: ENV["SNOWFLAKE_ACCOUNT"],
+                warehouse: ENV["SNOWFLAKE_WAREHOUSE"],
+                user: ENV["SNOWFLAKE_USER"],
+                password: ENV["SNOWFLAKE_PASSWORD"],
+              )
+              s = Time.now.to_i
+              puts "IDX #{local_idx} started #{s}"
+              query = "SELECT SYSTEM$WAIT(2)"
+              result = client.fetch(query)
+              puts "IDX #{local_idx} done #{Time.now.to_i - s }"
+            end
+          end
+
+          t.map(&:join)
+        end
+      end
+
       context "fetching 150k rows x 10 times - with threads & shared client" do
         let(:limit) { 150_000 }
         it "should work" do

@@ -24,13 +24,21 @@ type SnowflakeClient struct {
 	db *sql.DB
 }
 
+func FetchNoGVL(ptr C.VALUE) C.VALUE {
+	x, _ := clientRef[self]
+	return x.Fetch(statement)
+}
+
 func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	t1 := time.Now()
 
 	if LOG_LEVEL > 0 {
 		fmt.Println("statement", RbGoString(statement))
 	}
-	rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.Background()), RbGoString(statement))
+	// this row needs to run w/o GVL
+	C.rb_thread_call_without_gvl(ObjFetch, stmt, RUBY_UBF_IO, NULL)
+	rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.WithTimeout()), RbGoString(statement))
+	// end
 	if err != nil {
 		result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
 		errStr := fmt.Sprintf("Query error: '%s'", err.Error())
@@ -93,6 +101,11 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 //export ObjFetch
 func ObjFetch(self C.VALUE, statement C.VALUE) C.VALUE {
 	x, _ := clientRef[self]
-
-	return x.Fetch(statement)
+	arrayOfStmtAndClient[self] = []C.VALUE{self, statement}
+	C.rb_thread_call_without_gvl(
+		FetchNoGVL,
+		self,
+		C.Ruby_UBF_IO,
+		C.Qnil,
+	)
 }
