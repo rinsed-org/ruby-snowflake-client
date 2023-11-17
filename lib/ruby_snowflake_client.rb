@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 module Snowflake
-  require "ruby_snowflake_client_ext" # build bundle of the go file
+  #require "ruby_snowflake_client_ext" # build bundle of the go file
+  require_relative "../ext/ruby_snowflake_client_ext" # build bundle of the go files
 
   LOG_LEVEL = 0
 
