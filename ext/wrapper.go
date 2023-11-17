@@ -2,6 +2,7 @@ package main
 
 /*
 #include "ruby/ruby.h"
+#include "ruby/thread.h"
 
 const char *
 rstring_ptr(VALUE str) {
@@ -31,6 +32,10 @@ VALUE ReturnEnumerator(VALUE cls) {
 
 void RbGcGuard(VALUE ptr) {
 	RB_GC_GUARD(ptr);
+}
+
+void * RbUbf() {
+	return RUBY_UBF_IO;
 }
 */
 import "C"
@@ -109,4 +114,11 @@ func StrSlice2RbArray(slice []string) C.VALUE {
 		C.rb_ary_push(ary, RbString(val))
 	}
 	return ary
+}
+
+// export FetchNoGVL
+func FetchNoGVL(ptr C.VALUE) C.VALUE {
+	x, _ := arrayOfStmtAndClient[ptr]
+	client, _ := clientRef[x[0]]
+	return client.Fetch(x[1])
 }

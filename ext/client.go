@@ -3,10 +3,21 @@ package main
 /*
 #include <stdlib.h>
 #include "ruby/ruby.h"
+#include "ruby/thread.h"
 
 void RbGcGuard(VALUE ptr);
 VALUE ReturnEnumerator(VALUE cls);
 VALUE RbNumFromDouble(double v);
+VALUE RbUbf();
+VALUE FetchNoGVL(VALUE);
+void * threadCallNoGVL(VALUE ptr) {
+	return rb_thread_call_without_gvl(
+		FetchNoGVL,
+		ptr,
+		RUBY_UBF_IO,
+		NULL
+	);
+}
 */
 import "C"
 
@@ -24,11 +35,6 @@ type SnowflakeClient struct {
 	db *sql.DB
 }
 
-func FetchNoGVL(ptr C.VALUE) C.VALUE {
-	x, _ := clientRef[self]
-	return x.Fetch(statement)
-}
-
 func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 	t1 := time.Now()
 
@@ -36,8 +42,8 @@ func (x SnowflakeClient) Fetch(statement C.VALUE) C.VALUE {
 		fmt.Println("statement", RbGoString(statement))
 	}
 	// this row needs to run w/o GVL
-	C.rb_thread_call_without_gvl(ObjFetch, stmt, RUBY_UBF_IO, NULL)
-	rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.WithTimeout()), RbGoString(statement))
+	//C.rb_thread_call_without_gvl(ObjFetch, stmt, RUBY_UBF_IO, NULL)
+	rows, err := x.db.QueryContext(sf.WithHigherPrecision(context.Background()), RbGoString(statement))
 	// end
 	if err != nil {
 		result := C.rb_class_new_instance(0, &empty, rbSnowflakeResultClass)
@@ -100,12 +106,12 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 
 //export ObjFetch
 func ObjFetch(self C.VALUE, statement C.VALUE) C.VALUE {
-	x, _ := clientRef[self]
 	arrayOfStmtAndClient[self] = []C.VALUE{self, statement}
-	C.rb_thread_call_without_gvl(
-		FetchNoGVL,
-		self,
-		C.Ruby_UBF_IO,
-		C.Qnil,
-	)
+	return C.threadCallNoGVL(self)
+	//return C.rb_thread_call_without_gvl(
+	//C.FetchNoGVL,
+	//self,
+	//C.RbUbf,
+	//C.Qnil,
+	//)
 }

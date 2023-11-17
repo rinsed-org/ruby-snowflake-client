@@ -3,7 +3,6 @@ package main
 /*
 #include <stdlib.h>
 #include "ruby/ruby.h"
-#include "ruby/thread.h"
 void Connect(VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE,VALUE);
 VALUE ObjFetch(VALUE,VALUE);
 VALUE ObjNextRow(VALUE);
@@ -14,12 +13,6 @@ VALUE GetRowsNoEnum(VALUE);
 void RbGcGuard(VALUE ptr);
 VALUE ReturnEnumerator(VALUE cls);
 VALUE RbNumFromDouble(double v);
-
-static VALUE ObjFetchAsync(VALUE self, VALUE stmt) {
-  rb_thread_call_without_gvl(ObjFetch, stmt, RUBY_UBF_IO, NULL);
-
-  return Qnil;
-}
 */
 import "C"
 
@@ -128,7 +121,7 @@ func Init_ruby_snowflake_client_ext() {
 	if LOG_LEVEL > 0 {
 		fmt.Println("[ruby-snowflake] Define method 7")
 	}
-	C.rb_define_method(rbSnowflakeClientClass, C.CString("_fetch"), (*[0]byte)(C.ObjFetchAsync), 1)
+	C.rb_define_method(rbSnowflakeClientClass, C.CString("_fetch"), (*[0]byte)(C.ObjFetch), 1)
 
 	if LOG_LEVEL > 0 {
 		fmt.Println("init ruby snowflake client")
