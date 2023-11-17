@@ -10,14 +10,6 @@ VALUE ReturnEnumerator(VALUE cls);
 VALUE RbNumFromDouble(double v);
 VALUE RbUbf();
 VALUE FetchNoGVL(VALUE);
-void * threadCallNoGVL(VALUE ptr) {
-	return rb_thread_call_without_gvl(
-		FetchNoGVL,
-		ptr,
-		RUBY_UBF_IO,
-		NULL
-	);
-}
 */
 import "C"
 
@@ -27,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unsafe"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -107,11 +100,12 @@ func Connect(self C.VALUE, account C.VALUE, warehouse C.VALUE, database C.VALUE,
 //export ObjFetch
 func ObjFetch(self C.VALUE, statement C.VALUE) C.VALUE {
 	arrayOfStmtAndClient[self] = []C.VALUE{self, statement}
-	return C.threadCallNoGVL(self)
-	//return C.rb_thread_call_without_gvl(
-	//C.FetchNoGVL,
-	//self,
-	//C.RbUbf,
-	//C.Qnil,
-	//)
+	bla := C.rb_thread_call_without_gvl(
+		(*[0]byte)(unsafe.Pointer(C.FetchNoGVL)),
+		self,
+		C.NULL,
+		//(*C.rb_unblock_function_t)(C.RbUbf),
+		C.NULL,
+	)
+	return bla
 }
