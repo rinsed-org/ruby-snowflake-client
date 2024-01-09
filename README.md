@@ -1,5 +1,9 @@
 # `ruby_snowflake_client`
 
+# This is now deprecated in favour of a fully native [Ruby gem](https://github.com/rinsed-org/rb-snowflake-client).
+
+---
+
 The gem provides an interface to allow users to query Snowflake. This wraps around
 the [Snowflake Go package](https://github.com/snowflakedb/gosnowflake).
 
