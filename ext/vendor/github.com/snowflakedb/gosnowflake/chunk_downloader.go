@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/ipc"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type chunkDownloader interface {
@@ -40,6 +40,7 @@ type chunkDownloader interface {
 type snowflakeChunkDownloader struct {
 	sc                 *snowflakeConn
 	ctx                context.Context
+	pool               memory.Allocator
 	Total              int64
 	TotalRowIndex      int64
 	CellCount          int
@@ -64,7 +65,7 @@ type snowflakeChunkDownloader struct {
 	RowSet             rowSetType
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
-	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
+	FuncGet            func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
@@ -105,10 +106,10 @@ func (scd *snowflakeChunkDownloader) start() error {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		var loc *time.Location
-		if scd.sc != nil {
+		if scd.sc != nil && scd.sc.cfg != nil {
 			loc = getCurrentLocation(scd.sc.cfg.Params)
 		}
-		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc)
+		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
 		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
@@ -128,7 +129,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		scd.ChunksChan = make(chan int, chunkMetaLen)
 		scd.ChunksError = make(chan *chunkError, MaxChunkDownloadWorkers)
 		for i := 0; i < chunkMetaLen; i++ {
-			var chunk = scd.ChunkMetas[i]
+			chunk := scd.ChunkMetas[i]
 			logger.Debugf("add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
 				i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
 			scd.ChunksChan <- i
@@ -154,7 +155,9 @@ func (scd *snowflakeChunkDownloader) schedule() {
 func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 	select {
 	case errc := <-scd.ChunksError:
-		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != context.Canceled {
+		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter &&
+			errc.Error != context.Canceled &&
+			errc.Error != context.DeadlineExceeded {
 			// add the index to the chunks channel so that the download will be retried.
 			go scd.FuncDownload(scd.ctx, scd, errc.Index)
 			scd.ChunksErrorCounter++
@@ -251,26 +254,27 @@ func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
 
 func getChunk(
 	ctx context.Context,
-	scd *snowflakeChunkDownloader,
+	sc *snowflakeConn,
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
-	*http.Response, error) {
+	*http.Response, error,
+) {
 	u, err := url.Parse(fullURL)
 	if err != nil {
 		return nil, err
 	}
-	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
+	return newRetryHTTP(ctx, sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
 }
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	var err error
 	chunkMetaLen := len(scd.ChunkMetas)
 	var loc *time.Location
-	if scd.sc != nil {
+	if scd.sc != nil && scd.sc.cfg != nil {
 		loc = getCurrentLocation(scd.sc.cfg.Params)
 	}
-	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc)
+	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 	scd.FirstBatch = &ArrowBatch{
 		idx:                0,
 		scd:                scd,
@@ -284,7 +288,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		}
 	}
 	scd.ArrowBatches = make([]*ArrowBatch, chunkMetaLen)
-	for i := 0; i < chunkMetaLen; i++ {
+	for i := range scd.ArrowBatches {
 		scd.ArrowBatches[i] = &ArrowBatch{
 			idx:                i,
 			scd:                scd,
@@ -354,7 +358,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		headers[headerSseCKey] = scd.Qrmk
 	}
 
-	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
+	resp, err := scd.FuncGet(ctx, scd.sc, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {
 		return err
 	}
@@ -421,20 +425,19 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		respd = make([]chunkRowType, len(decRespd))
 		populateJSONRowSet(respd, decRespd)
 	} else {
-		ipcReader, err := ipc.NewReader(source)
+		ipcReader, err := ipc.NewReader(source, ipc.WithAllocator(scd.pool))
 		if err != nil {
 			return err
 		}
 		var loc *time.Location
-		if scd.sc != nil {
+		if scd.sc != nil && scd.sc.cfg != nil {
 			loc = getCurrentLocation(scd.sc.cfg.Params)
 		}
 		arc := arrowResultChunk{
-			*ipcReader,
+			ipcReader,
 			0,
-			int(scd.totalUncompressedSize()),
-			memory.NewGoAllocator(),
 			loc,
+			scd.pool,
 		}
 		if usesArrowBatches(scd.ctx) {
 			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
@@ -496,7 +499,7 @@ func (scd *streamChunkDownloader) nextResultSet() error {
 
 func (scd *streamChunkDownloader) start() error {
 	go func() {
-		var readErr = io.EOF
+		readErr := io.EOF
 
 		logger.WithContext(scd.ctx).Infof(
 			"start downloading. downloader id: %v, %v/%v rows, %v chunks",
@@ -607,7 +610,8 @@ func newStreamChunkDownloader(
 	total int64,
 	rowType []execResponseRowType,
 	firstRows [][]*string,
-	chunks []execResponseChunk) *streamChunkDownloader {
+	chunks []execResponseChunk,
+) *streamChunkDownloader {
 	return &streamChunkDownloader{
 		ctx:        ctx,
 		id:         rand.Int63(),
@@ -722,6 +726,14 @@ func (rb *ArrowBatch) Fetch() (*[]arrow.Record, error) {
 // GetRowCount returns the number of rows in an arrow batch
 func (rb *ArrowBatch) GetRowCount() int {
 	return rb.rowCount
+}
+
+func getAllocator(ctx context.Context) memory.Allocator {
+	pool, ok := ctx.Value(arrowAlloc).(memory.Allocator)
+	if !ok {
+		return memory.DefaultAllocator
+	}
+	return pool
 }
 
 func usesArrowBatches(ctx context.Context) bool {

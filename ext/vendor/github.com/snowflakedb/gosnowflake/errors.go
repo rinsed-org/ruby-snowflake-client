@@ -82,12 +82,7 @@ func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError 
 
 // return populated error fields replacing the default response
 func populateErrorFields(code int, data *execResponse) *SnowflakeError {
-	err := &SnowflakeError{
-		Number:   -1,
-		SQLState: "-1",
-		Message:  "an unknown server side error occurred",
-		QueryID:  "-1",
-	}
+	err := ErrUnknownError
 	if code != -1 {
 		err.Number = code
 	}

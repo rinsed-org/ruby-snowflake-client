@@ -400,6 +400,15 @@ The “?“ inside the “VALUES“ clause specifies that the SQL statement uses
 Binding data that involves time zones can require special handling. For details, see the section
 titled "Timestamps with Time Zones".
 
+Version 1.6.23 (and later) of the driver takes advantage of sql.Null types which enables the proper handling of null parameters inside function calls, i.e.:
+
+	rows, err := db.Query("SELECT * FROM TABLE(SOMEFUNCTION(?))", sql.NullBool{})
+
+The timestamp nullability had to be achieved by wrapping the sql.NullTime type as the Snowflake provides several date and time types
+which are mapped to single Go time.Time type:
+
+	rows, err := db.Query("SELECT * FROM TABLE(SOMEFUNCTION(?))", sf.TypedNullTime{sql.NullTime{}, sf.TimestampLTZType})
+
 # Binding Parameters to Array Variables
 
 Version 1.3.9 (and later) of the Go Snowflake Driver supports the ability to bind an array variable to a parameter in a SQL
@@ -568,8 +577,8 @@ or using a Config structure specifying:
 
 	config := &Config{
 		...
-		Authenticator: "SNOWFLAKE_JWT"
-		PrivateKey:   "<your_private_key_struct in *rsa.PrivateKey type>"
+		Authenticator: AuthTypeJwt,
+		PrivateKey:   "<your_private_key_struct in *rsa.PrivateKey type>",
 	}
 
 The <your_private_key> should be a base64 URL encoded PKCS8 rsa private key string. One way to encode a byte slice to URL
@@ -598,6 +607,30 @@ To generate the valid key pair, you can execute the following commands in the sh
 Note: As of February 2020, Golang's official library does not support passcode-encrypted PKCS8 private key.
 For security purposes, Snowflake highly recommends that you store the passcode-encrypted private key on the disk and
 decrypt the key in your application using a library you trust.
+
+# External browser authentication
+
+The driver allows to authenticate using the external browser.
+
+When a connection is created, the driver will open the browser window and ask the user to sign in.
+
+To enable this feature, construct the DSN with field "authenticator=EXTERNALBROWSER" or using a Config structure with
+following Authenticator specified:
+
+	config := &Config{
+		...
+		Authenticator: AuthTypeExternalBrowser,
+	}
+
+The external browser authentication implements timeout mechanism. This prevents the driver from hanging interminably when
+browser window was closed, or not responding.
+
+Timeout defaults to 120s and can be changed through setting DSN field "externalBrowserTimeout=240" (time in seconds)
+or using a Config structure with following ExternalBrowserTimeout specified:
+
+	config := &Config{
+		ExternalBrowserTimeout: 240 * time.Second, // Requires time.Duration
+	}
 
 # Executing Multiple Statements in One Call
 
@@ -775,12 +808,12 @@ Because the example code above executes only one query and no other activity, th
 no significant difference in behavior between asynchronous and synchronous behavior.
 The differences become significant if, for example, you want to perform some other
 activity after the query starts and before it completes. The example code below starts
-multiple queries, which run in the background, and then retrieves the results later.
+a query, which run in the background, and then retrieves the results later.
 
 This example uses small SELECT statements that do not retrieve enough data to require
 asynchronous handling. However, the technique works for larger data sets, and for
 situations where the programmer might want to do other work after starting the queries
-and before retrieving the results.
+and before retrieving the results. For a more elaborative example please see cmd/async/async.go
 
 		package gosnowflake
 
@@ -797,28 +830,26 @@ and before retrieving the results.
 		...
 
 		func DemonstrateAsyncMode(db *sql.DB) {
-			// Enable asynchronous mode.
-			ctx := WithAsyncMode(context.Background())
-			// Establish connection
-			conn, _ := db.Conn(ctx)
+			// Enable asynchronous mode
+			ctx := sf.WithAsyncMode(context.Background())
 
-			// Unwrap connection
-			err = conn.Raw(func(x interface{}) error {
-				// Execute asynchronous query
-				rows, _ := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
-				defer rows.Close()
+			// Run the query with asynchronous context
+			rows, err := db.QueryContext(ctx, "select 1")
+			if err != nil {
+				// handle error
+			}
 
-				// Retrieve and check results of the query after casting the result
-				status := rows.(SnowflakeResult).GetStatus()
-				if status == QueryStatusComplete {
-					// do something
-				} else if status == QueryStatusInProgress {
-					// do something
-				} else if status == QueryFailed {
-					// do something
-				}
-				return nil
-			})
+			// do something as the workflow continues whereas the query is computing in the background
+			...
+
+			// Get the data when you are ready to handle it
+			var val int
+			err = rows.Scan(&val)
+			if err != nil {
+				// handle error
+			}
+
+			...
 		}
 
 # Support For PUT and GET
